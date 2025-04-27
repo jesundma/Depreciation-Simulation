@@ -7,6 +7,15 @@ class Project:
     branch: str
     operations: str
     description: str
+
+@dataclass
+class Investment:
     yearly_investments: Dict[int, float] = field(default_factory=dict)
-    depreciation_schedule: Dict[int, str] = field(default_factory=dict)
-    calculated_depreciations: Dict[int, float] = field(default_factory=dict)
+
+@dataclass
+class DepreciationSchedule:
+    schedule: Dict[int, str] = field(default_factory=dict)
+
+@dataclass
+class CalculatedDepreciation:
+    calculated_values: Dict[int, float] = field(default_factory=dict)
