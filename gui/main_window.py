@@ -2,6 +2,32 @@ import tkinter as tk
 from tkinter import ttk
 from .save_project_window import open_save_project_window
 from .open_project_window import open_open_project_window
+import os
+import psycopg2
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+def connect_to_db():
+    try:
+        db_url = os.getenv("DATABASE_URL")
+        
+        if not db_url:
+            raise ValueError("DATABASE_URL is not set in environment variables.")
+        
+        # Connect to the database
+        conn = psycopg2.connect(db_url)
+
+        # Check if SSL is used
+        ssl_status = conn.get_parameter_status('ssl')
+        print("Connection successful!")
+        print(f"SSL connection: {ssl_status}")
+        
+        conn.close()
+
+    except Exception as e:
+        print(f"Database connection failed: {e}")
 
 def main_window():
     def open_project():

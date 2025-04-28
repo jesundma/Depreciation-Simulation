@@ -9,4 +9,4 @@ from gui.main_window import main_window
 
 if __name__ == "__main__":
     app = main_window()
-    app.run()
+    # Removed app.run() as main_window already starts the GUI loop.

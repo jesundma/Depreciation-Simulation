@@ -1,13 +1,18 @@
+from dotenv import load_dotenv
+import os
 import psycopg2
 
-# Your connection string
+# Load environment variables from .env file
+load_dotenv()
+
+# Get connection string from environment variables
 conn = psycopg2.connect(
-    dbname="neondb",
-    user="neondb_owner",
-    password="npg_o5jBFkTeuR6E",
-    host="ep-noisy-flower-a9t6d9h4-pooler.gwc.azure.neon.tech",
-    port="5432",  # Usually 5432
-    sslmode="require"
+    dbname=os.getenv("DB_NAME"),
+    user=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASSWORD"),
+    host=os.getenv("DB_HOST"),
+    port=os.getenv("DB_PORT"),
+    sslmode=os.getenv("DB_SSLMODE", "require")
 )
 
 # Create a cursor
