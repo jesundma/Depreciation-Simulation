@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from .save_project_window import open_save_project_window
 from .open_project_window import open_open_project_window
+from .setup_database_window import setup_database_window
 import os
 import psycopg2
 from dotenv import load_dotenv
@@ -34,11 +35,17 @@ def open_database_status_window():
     status_window.title("Database Status")
     status_window.geometry("400x300")
 
-    status_label = ttk.Label(status_window, text="Initializing database connection...", font=("Arial", 12))
-    status_label.pack(pady=20)
+    text_area = tk.Text(status_window, wrap=tk.WORD, font=("Arial", 12), height=15, width=50)
+    text_area.pack(pady=20, padx=10, fill=tk.BOTH, expand=True)
+
+    scrollbar = ttk.Scrollbar(status_window, command=text_area.yview)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    text_area.config(yscrollcommand=scrollbar.set)
 
     def update_status(message):
-        status_label.config(text=message)
+        text_area.insert(tk.END, message + "\n")
+        text_area.see(tk.END)
+        status_window.update_idletasks()
 
     try:
         db_url = os.getenv("DATABASE_URL")
@@ -65,17 +72,33 @@ def open_database_status_window():
     close_button.pack(pady=20)
 
 def setup_database():
+    status_window = tk.Toplevel()
+    status_window.title("Database Setup Status")
+    status_window.geometry("400x300")
+
+    text_area = tk.Text(status_window, wrap=tk.WORD, font=("Arial", 12), height=15, width=50)
+    text_area.pack(pady=20, padx=10, fill=tk.BOTH, expand=True)
+
+    scrollbar = ttk.Scrollbar(status_window, command=text_area.yview)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    text_area.config(yscrollcommand=scrollbar.set)
+
+    def update_status(message):
+        text_area.insert(tk.END, message + "\n")
+        text_area.see(tk.END)
+        status_window.update_idletasks()
+
     try:
         db_url = os.getenv("DATABASE_URL")
 
         if not db_url:
             raise ValueError("DATABASE_URL is not set in environment variables.")
 
-        # Connect to the database
+        update_status("Opening database connection...")
         conn = psycopg2.connect(db_url)
         cur = conn.cursor()
 
-        # Clear all tables
+        update_status("Clearing all tables...")
         cur.execute("""
             DO $$
             DECLARE
@@ -90,7 +113,7 @@ def setup_database():
             $$;
         """)
 
-        # Create new tables
+        update_status("Creating new tables...")
         cur.execute("""
             CREATE TABLE projects (
                 project_id TEXT PRIMARY KEY,
@@ -101,23 +124,20 @@ def setup_database():
 
             CREATE TABLE investments (
                 project_id TEXT REFERENCES projects(project_id),
-                year INT,
-                investment_amount NUMERIC,
-                PRIMARY KEY (project_id, year)
+                yearly_investments JSONB,
+                PRIMARY KEY (project_id)
             );
 
             CREATE TABLE depreciation_schedules (
                 project_id TEXT REFERENCES projects(project_id),
-                year INT,
-                schedule TEXT,
-                PRIMARY KEY (project_id, year)
+                schedule JSONB,
+                PRIMARY KEY (project_id)
             );
 
             CREATE TABLE calculated_depreciations (
                 project_id TEXT REFERENCES projects(project_id),
-                year INT,
-                depreciation_value NUMERIC,
-                PRIMARY KEY (project_id, year)
+                calculated_values JSONB,
+                PRIMARY KEY (project_id)
             );
         """)
 
@@ -125,10 +145,13 @@ def setup_database():
         cur.close()
         conn.close()
 
-        print("Database setup completed successfully!")
+        update_status("Database setup completed successfully!")
 
     except Exception as e:
-        print(f"Database setup failed: {e}")
+        update_status(f"Database setup failed:\n{e}")
+
+    close_button = ttk.Button(status_window, text="Close", command=status_window.destroy)
+    close_button.pack(pady=20)
 
 def main_window():
     def open_project():
@@ -141,7 +164,7 @@ def main_window():
         open_database_status_window()
 
     def setup_database():
-        print("Database setup functionality goes here.")
+        setup_database_window()
 
     root = tk.Tk()
     root.title("Main Menu")
