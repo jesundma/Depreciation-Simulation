@@ -29,6 +29,107 @@ def connect_to_db():
     except Exception as e:
         print(f"Database connection failed: {e}")
 
+def open_database_status_window():
+    status_window = tk.Toplevel()
+    status_window.title("Database Status")
+    status_window.geometry("400x300")
+
+    status_label = ttk.Label(status_window, text="Initializing database connection...", font=("Arial", 12))
+    status_label.pack(pady=20)
+
+    def update_status(message):
+        status_label.config(text=message)
+
+    try:
+        db_url = os.getenv("DATABASE_URL")
+
+        if not db_url:
+            raise ValueError("DATABASE_URL is not set in environment variables.")
+
+        update_status("Opening database connection...")
+        conn = psycopg2.connect(db_url)
+
+        update_status("Executing test query...")
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1;")
+
+        update_status("Closing database connection...")
+        conn.close()
+
+        update_status("Database connection closed successfully.")
+
+    except Exception as e:
+        update_status(f"Database operation failed:\n{e}")
+
+    close_button = ttk.Button(status_window, text="Close", command=status_window.destroy)
+    close_button.pack(pady=20)
+
+def setup_database():
+    try:
+        db_url = os.getenv("DATABASE_URL")
+
+        if not db_url:
+            raise ValueError("DATABASE_URL is not set in environment variables.")
+
+        # Connect to the database
+        conn = psycopg2.connect(db_url)
+        cur = conn.cursor()
+
+        # Clear all tables
+        cur.execute("""
+            DO $$
+            DECLARE
+                table_name text;
+            BEGIN
+                FOR table_name IN
+                    SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+                LOOP
+                    EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', table_name);
+                END LOOP;
+            END;
+            $$;
+        """)
+
+        # Create new tables
+        cur.execute("""
+            CREATE TABLE projects (
+                project_id TEXT PRIMARY KEY,
+                branch TEXT,
+                operations TEXT,
+                description TEXT
+            );
+
+            CREATE TABLE investments (
+                project_id TEXT REFERENCES projects(project_id),
+                year INT,
+                investment_amount NUMERIC,
+                PRIMARY KEY (project_id, year)
+            );
+
+            CREATE TABLE depreciation_schedules (
+                project_id TEXT REFERENCES projects(project_id),
+                year INT,
+                schedule TEXT,
+                PRIMARY KEY (project_id, year)
+            );
+
+            CREATE TABLE calculated_depreciations (
+                project_id TEXT REFERENCES projects(project_id),
+                year INT,
+                depreciation_value NUMERIC,
+                PRIMARY KEY (project_id, year)
+            );
+        """)
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        print("Database setup completed successfully!")
+
+    except Exception as e:
+        print(f"Database setup failed: {e}")
+
 def main_window():
     def open_project():
         open_open_project_window(root)
@@ -37,9 +138,10 @@ def main_window():
         open_save_project_window(root)
 
     def open_database():
-        # Run the project_repositary.py script
-        import subprocess
-        subprocess.run(["python", "-m", "db.project_repositary"])
+        open_database_status_window()
+
+    def setup_database():
+        print("Database setup functionality goes here.")
 
     root = tk.Tk()
     root.title("Main Menu")
@@ -61,7 +163,8 @@ def main_window():
 
     # Add Database menu
     database_menu = tk.Menu(menu_bar, tearoff=0)
-    database_menu.add_command(label="Open Database", command=open_database)
+    # Removed the Open Database option from the Database menu
+    database_menu.add_command(label="Database Setup", command=setup_database)
     menu_bar.add_cascade(label="Database", menu=database_menu)
 
     root.config(menu=menu_bar)
