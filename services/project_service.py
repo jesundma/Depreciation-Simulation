@@ -35,8 +35,17 @@ class DatabaseService:
 class ProjectService:
     @staticmethod
     def save_to_database(project: Project):
-        # Connect to DB and save project
-        pass
+        db_service = DatabaseService()
+        query = """
+            INSERT INTO projects (project_id, branch, operations, description)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (project_id) DO UPDATE
+            SET branch = EXCLUDED.branch,
+                operations = EXCLUDED.operations,
+                description = EXCLUDED.description;
+        """
+        params = (project.project_id, project.branch, project.operations, project.description)
+        db_service.execute_query(query, params)
 
     @staticmethod
     def load_from_database(project_id: str) -> Project:
