@@ -22,32 +22,33 @@ query_clear_tables = """
     END;
     $$;
 """
-db_service.execute_query(query_clear_tables)
+# Removed the automatic execution of the query_clear_tables to ensure it is only triggered explicitly.
+# db_service.execute_query(query_clear_tables)
 
 # Example: Create tables
 query_create_tables = """
-    CREATE TABLE projects (
+    CREATE TABLE IF NOT EXISTS projects (
         project_id TEXT PRIMARY KEY,
         branch TEXT,
         operations TEXT,
         description TEXT
     );
 
-    CREATE TABLE investments (
+    CREATE TABLE IF NOT EXISTS investments (
         project_id TEXT REFERENCES projects(project_id),
         year INT,
         investment_amount NUMERIC,
         PRIMARY KEY (project_id, year)
     );
 
-    CREATE TABLE depreciation_schedules (
+    CREATE TABLE IF NOT EXISTS depreciation_schedules (
         project_id TEXT REFERENCES projects(project_id),
         year INT,
         schedule TEXT,
         PRIMARY KEY (project_id, year)
     );
 
-    CREATE TABLE calculated_depreciations (
+    CREATE TABLE IF NOT EXISTS calculated_depreciations (
         project_id TEXT REFERENCES projects(project_id),
         year INT,
         depreciation_value NUMERIC,
