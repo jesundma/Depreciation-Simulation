@@ -1,15 +1,25 @@
 from models.project_model import Project
+from db.database_service import DatabaseService
 
 class ProjectService:
     @staticmethod
     def save_to_database(project: Project):
-        # Logic to save project to database
-        pass
+        db_service = DatabaseService()
+        db_service.save_project(project)
 
     @staticmethod
     def load_from_database(project_id: str) -> Project:
-        # Connect to DB and load project
-        pass
+        db_service = DatabaseService()
+        project_data = db_service.load_project(project_id)
+
+        if project_data:
+            return Project(
+                project_id=project_data['project_id'],
+                branch=project_data['branch'],
+                operations=project_data['operations'],
+                description=project_data['description']
+            )
+        return None
 
     @staticmethod
     def calculate_depreciation(project: Project):
@@ -18,5 +28,10 @@ class ProjectService:
 
     @staticmethod
     def search_projects(project_id=None, branch=None, operations=None, description=None):
-        # Logic to search projects
-        pass
+        db_service = DatabaseService()
+        return db_service.search_projects(
+            project_id=project_id,
+            branch=branch,
+            operations=operations,
+            description=description
+        )
