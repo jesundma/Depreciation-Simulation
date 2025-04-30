@@ -14,7 +14,7 @@ FLASK_URL = os.getenv("FLASK_URL", "http://127.0.0.1:5000")
 from gui.main_window import main_window
 from flask import Flask, jsonify, request
 from services.project_service import ProjectService
-from db.project_repositary import DatabaseService
+from db.database_service import DatabaseService
 
 app = Flask(__name__)
 

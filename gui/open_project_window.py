@@ -106,11 +106,7 @@ def open_open_project_window(root):
             open_button.pack(pady=10)
 
     def is_server_running():
-        try:
-            response = requests.get(f"{FLASK_URL}/health")
-            return response.status_code == 200
-        except requests.ConnectionError:
-            return False
+        return False  # Default to desktop database connection if Flask is not running
 
     def search_project():
         project_id = entry_project_id.get()
