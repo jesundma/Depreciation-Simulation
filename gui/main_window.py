@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from .save_project_window import open_save_project_window
 from .open_project_window import open_open_project_window
-from .setup_database_window import setup_database_window
+from .setup_window import setup_database_window, setup_depreciation_window, setup_test_database
 import os
 import psycopg2
 from dotenv import load_dotenv
@@ -98,9 +98,6 @@ def main_window():
     def save_project():
         open_save_project_window(root)
 
-    def open_database():
-        open_database_status_window()
-
     def setup_database():
         setup_database_window()
 
@@ -124,9 +121,9 @@ def main_window():
 
     # Add Setup and Maintenance menu
     database_menu = tk.Menu(menu_bar, tearoff=0)
-    database_menu.add_command(label="Database Setup", command=setup_database)
-    # Add Depreciation Setup under Setup and Maintenance menu
-    database_menu.add_command(label="Depreciation Setup", command=setup_database)
+    database_menu.add_command(label="Database Setup", command=setup_database_window)
+    database_menu.add_command(label="Depreciation Setup", command=setup_depreciation_window)
+    database_menu.add_command(label="Test Database Setup", command=setup_test_database)  # Modify the label for the test database setup menu item
     menu_bar.add_cascade(label="Setup and Maintenance", menu=database_menu)
 
     root.config(menu=menu_bar)

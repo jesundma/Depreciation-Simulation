@@ -2,6 +2,9 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from db.database_service import DatabaseService
+from models.project_model import Project
+import random
+import string
 
 def setup_database_window():
     """
@@ -108,3 +111,57 @@ def setup_depreciation_window():
     close_button.pack(pady=5)
 
     window.mainloop()
+
+def setup_test_database():
+    """
+    Opens a window to display the status of setting up a test database.
+    """
+    status_window = tk.Toplevel()
+    status_window.title("Setup Test Database")
+    status_window.geometry("400x300")
+
+    text_area = tk.Text(status_window, wrap=tk.WORD, font=("Arial", 12), height=15, width=50)
+    text_area.pack(pady=20, padx=10, fill=tk.BOTH, expand=True)
+
+    scrollbar = ttk.Scrollbar(status_window, command=text_area.yview)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    text_area.config(yscrollcommand=scrollbar.set)
+
+    def update_status(message):
+        text_area.insert(tk.END, message + "\n")
+        text_area.see(tk.END)
+        status_window.update_idletasks()
+
+    db_service = DatabaseService()
+
+    def random_string(length):
+        return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+    try:
+        update_status("Creating 6 entries for Setup Test Database...")
+        for i in range(1, 7):
+            project_id = random_string(6)
+            branch = random_string(5)
+            operations = random_string(5)
+            description = random_string(5)
+
+            # Create a Project instance
+            project = Project(
+                project_id=project_id,
+                branch=branch,
+                operations=operations,
+                description=description
+            )
+
+            # Save the project to the database
+            db_service.save_project(project)
+
+            update_status(f"Entry {i} created successfully with Project ID: {project_id}, Branch: {branch}, Operations: {operations}, Description: {description}.")
+
+        update_status("Setup Test Database completed successfully!")
+
+    except Exception as e:
+        update_status(f"Setup Test Database failed:\n{e}")
+
+    close_button = ttk.Button(status_window, text="Close", command=status_window.destroy)
+    close_button.pack(pady=20)
