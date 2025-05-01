@@ -40,23 +40,11 @@ class DatabaseService:
         Set up the database by clearing all tables and creating new ones.
         """
         try:
+            # Reuse the clear_all_tables method to avoid redundancy
+            self.clear_all_tables()
+
             conn = psycopg2.connect(self.db_url)
             cur = conn.cursor()
-
-            # Clear all tables
-            cur.execute("""
-                DO $$
-                DECLARE
-                    table_name text;
-                BEGIN
-                    FOR table_name IN
-                        SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-                    LOOP
-                        EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', table_name);
-                    END LOOP;
-                END;
-                $$;
-            """)
 
             # Create new tables
             cur.execute("""
@@ -245,3 +233,22 @@ class DatabaseService:
             params.append(f"%{description}%")
 
         return self.execute_query(query, params, fetch=True)
+
+    def clean_database(self):
+        """
+        Cleans the database by dropping all tables in the public schema.
+        """
+        query = """
+            DO $$
+            DECLARE
+                table_name text;
+            BEGIN
+                FOR table_name IN
+                    SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+                LOOP
+                    EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', table_name);
+                END LOOP;
+            END;
+            $$;
+        """
+        self.execute_query(query)
