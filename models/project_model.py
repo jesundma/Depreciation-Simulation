@@ -17,6 +17,9 @@ class Investment:
 class DepreciationSchedule:
     project_id: str  # Foreign key to bind with Project
     schedule: Dict[int, str] = field(default_factory=dict)
+    depreciation_percentage: float = 0.0  # Percentage to depreciate remaining value each year
+    depreciation_years: int = 0  # Number of years for depreciation
+    method_description: str = ""  # Description of the depreciation method
 
 @dataclass
 class CalculatedDepreciation:
