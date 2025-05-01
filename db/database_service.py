@@ -35,6 +35,66 @@ class DatabaseService:
             print(f"Database query failed: {e}")
             raise
 
+    def setup_database(self):
+        """
+        Set up the database by clearing all tables and creating new ones.
+        """
+        try:
+            conn = psycopg2.connect(self.db_url)
+            cur = conn.cursor()
+
+            # Clear all tables
+            cur.execute("""
+                DO $$
+                DECLARE
+                    table_name text;
+                BEGIN
+                    FOR table_name IN
+                        SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+                    LOOP
+                        EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', table_name);
+                    END LOOP;
+                END;
+                $$;
+            """)
+
+            # Create new tables
+            cur.execute("""
+                CREATE TABLE projects (
+                    project_id TEXT PRIMARY KEY,
+                    branch TEXT,
+                    operations TEXT,
+                    description TEXT
+                );
+
+                CREATE TABLE investments (
+                    project_id TEXT REFERENCES projects(project_id),
+                    yearly_investments JSONB,
+                    PRIMARY KEY (project_id)
+                );
+
+                CREATE TABLE depreciation_schedules (
+                    project_id TEXT REFERENCES projects(project_id),
+                    schedule JSONB,
+                    PRIMARY KEY (project_id)
+                );
+
+                CREATE TABLE calculated_depreciations (
+                    project_id TEXT REFERENCES projects(project_id),
+                    calculated_values JSONB,
+                    PRIMARY KEY (project_id)
+                );
+            """)
+
+            conn.commit()
+            cur.close()
+            conn.close()
+
+            return "Database setup completed successfully!"
+
+        except Exception as e:
+            return f"Database setup failed: {e}"
+
     def get_investment_schedule(self, project_id):
         """
         Fetch the investment schedule for a given project ID.
