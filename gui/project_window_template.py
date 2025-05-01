@@ -119,8 +119,9 @@ def display_project_window(project):
                         yearly_window.destroy()
                         print("Investments saved successfully.")
 
+                    # Ensure the Save Investments button is properly packed
                     save_button = ttk.Button(yearly_window, text="Save Investments", command=save_investments)
-                    save_button.pack(pady=10)
+                    save_button.pack(pady=10, side=tk.BOTTOM, anchor=tk.S)
 
                 except ValueError as e:
                     ttk.Label(year_window, text=str(e), foreground="red").pack()
@@ -131,6 +132,10 @@ def display_project_window(project):
         # Update the no investment button to open the new window
         no_investment_button = ttk.Button(details_frame, text="No investment schedule", command=open_investment_year_window)
         no_investment_button.grid(row=0, column=0, columnspan=2, pady=10)
+
+    # Ensure the Save Investments button is always shown
+    save_button = ttk.Button(details_frame, text="Save Investments", command=open_investment_year_window)
+    save_button.grid(row=6, column=0, columnspan=2, pady=10)
 
     # Add a close button
     close_button = ttk.Button(project_window, text="Close", command=project_window.destroy)
