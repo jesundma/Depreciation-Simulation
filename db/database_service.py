@@ -69,20 +69,23 @@ class DatabaseService:
 
                 CREATE TABLE investments (
                     project_id TEXT REFERENCES projects(project_id),
-                    yearly_investments JSONB,
-                    PRIMARY KEY (project_id)
+                    year INT,
+                    investment_amount NUMERIC,
+                    PRIMARY KEY (project_id, year)
                 );
 
                 CREATE TABLE depreciation_schedules (
                     project_id TEXT REFERENCES projects(project_id),
-                    schedule JSONB,
-                    PRIMARY KEY (project_id)
+                    year INT,
+                    schedule TEXT,
+                    PRIMARY KEY (project_id, year)
                 );
 
                 CREATE TABLE calculated_depreciations (
                     project_id TEXT REFERENCES projects(project_id),
-                    calculated_values JSONB,
-                    PRIMARY KEY (project_id)
+                    year INT,
+                    depreciation_value NUMERIC,
+                    PRIMARY KEY (project_id, year)
                 );
             """)
 
@@ -190,6 +193,20 @@ class DatabaseService:
             );
         """
         self.execute_query(query_create_tables)
+
+    def create_calculated_depreciations_table(self):
+        """
+        Create the calculated_depreciations table with standard SQL types.
+        """
+        query = """
+            CREATE TABLE IF NOT EXISTS calculated_depreciations (
+                project_id TEXT REFERENCES projects(project_id),
+                year INT,
+                depreciation_value NUMERIC,
+                PRIMARY KEY (project_id, year)
+            );
+        """
+        self.execute_query(query)
 
     def load_project(self, project_id):
         """

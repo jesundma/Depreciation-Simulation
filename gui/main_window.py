@@ -13,10 +13,10 @@ load_dotenv()
 def connect_to_db():
     try:
         db_url = os.getenv("DATABASE_URL")
-        
+
         if not db_url:
             raise ValueError("DATABASE_URL is not set in environment variables.")
-        
+
         # Connect to the database
         conn = psycopg2.connect(db_url)
 
@@ -24,9 +24,13 @@ def connect_to_db():
         ssl_status = conn.get_parameter_status('ssl')
         print("Connection successful!")
         print(f"SSL connection: {ssl_status}")
-        
+
         conn.close()
 
+    except psycopg2.OperationalError as oe:
+        print(f"Operational error occurred: {oe}")
+    except psycopg2.DatabaseError as de:
+        print(f"Database error occurred: {de}")
     except Exception as e:
         print(f"Database connection failed: {e}")
 
@@ -65,6 +69,10 @@ def open_database_status_window():
 
         update_status("Database connection closed successfully.")
 
+    except psycopg2.OperationalError as oe:
+        update_status(f"Operational error occurred:\n{oe}")
+    except psycopg2.DatabaseError as de:
+        update_status(f"Database error occurred:\n{de}")
     except Exception as e:
         update_status(f"Database operation failed:\n{e}")
 
@@ -82,76 +90,6 @@ def setup_database():
     scrollbar = ttk.Scrollbar(status_window, command=text_area.yview)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     text_area.config(yscrollcommand=scrollbar.set)
-
-    def update_status(message):
-        text_area.insert(tk.END, message + "\n")
-        text_area.see(tk.END)
-        status_window.update_idletasks()
-
-    try:
-        db_url = os.getenv("DATABASE_URL")
-
-        if not db_url:
-            raise ValueError("DATABASE_URL is not set in environment variables.")
-
-        update_status("Opening database connection...")
-        conn = psycopg2.connect(db_url)
-        cur = conn.cursor()
-
-        update_status("Clearing all tables...")
-        cur.execute("""
-            DO $$
-            DECLARE
-                table_name text;
-            BEGIN
-                FOR table_name IN
-                    SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-                LOOP
-                    EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', table_name);
-                END LOOP;
-            END;
-            $$;
-        """)
-
-        update_status("Creating new tables...")
-        cur.execute("""
-            CREATE TABLE projects (
-                project_id TEXT PRIMARY KEY,
-                branch TEXT,
-                operations TEXT,
-                description TEXT
-            );
-
-            CREATE TABLE investments (
-                project_id TEXT REFERENCES projects(project_id),
-                yearly_investments JSONB,
-                PRIMARY KEY (project_id)
-            );
-
-            CREATE TABLE depreciation_schedules (
-                project_id TEXT REFERENCES projects(project_id),
-                schedule JSONB,
-                PRIMARY KEY (project_id)
-            );
-
-            CREATE TABLE calculated_depreciations (
-                project_id TEXT REFERENCES projects(project_id),
-                calculated_values JSONB,
-                PRIMARY KEY (project_id)
-            );
-        """)
-
-        conn.commit()
-        cur.close()
-        conn.close()
-
-        update_status("Database setup completed successfully!")
-
-    except Exception as e:
-        update_status(f"Database setup failed:\n{e}")
-
-    close_button = ttk.Button(status_window, text="Close", command=status_window.destroy)
-    close_button.pack(pady=20)
 
 def main_window():
     def open_project():

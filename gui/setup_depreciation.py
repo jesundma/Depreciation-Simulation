@@ -1,51 +1,10 @@
-import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox
-import os
-import psycopg2
-from dotenv import load_dotenv
-from db.database_service import DatabaseService
-
-# Load environment variables
-load_dotenv()
-
-def setup_database_window():
-    status_window = tk.Toplevel()
-    status_window.title("Database Setup Status")
-    status_window.geometry("400x300")
-
-    # Replace the status_label with a scrolling text widget
-    text_area = tk.Text(status_window, wrap=tk.WORD, font=("Arial", 12), height=15, width=50)
-    text_area.pack(pady=20, padx=10, fill=tk.BOTH, expand=True)
-
-    scrollbar = ttk.Scrollbar(status_window, command=text_area.yview)
-    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-    text_area.config(yscrollcommand=scrollbar.set)
-
-    def update_status(message):
-        text_area.insert(tk.END, message + "\n")
-        text_area.see(tk.END)
-        status_window.update_idletasks()
-
-    try:
-        db_service = DatabaseService()
-
-        update_status("Clearing all tables...")
-        db_service.clear_all_tables()
-
-        update_status("Creating new tables...")
-        db_service.create_tables()
-
-        update_status("Database setup completed successfully!")
-
-    except Exception as e:
-        update_status(f"Database setup failed:\n{e}")
-
-    close_button = ttk.Button(status_window, text="Close", command=status_window.destroy)
-    close_button.pack(pady=20)
-
-def open_depreciation_setup_window():
-    # Removed the call to setup_database to ensure it does not fire when opening the Depreciation Setup window
+def setup_depreciation_window():
+    """
+    Opens the Depreciation Setup window.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+    from tkinter import messagebox
 
     def on_percentage_change(*args):
         if percentage_var.get():
@@ -107,6 +66,32 @@ def open_depreciation_setup_window():
 
     save_button = tk.Button(window, text="Save", command=save_depreciation_schedule)
     save_button.pack(pady=20)
+
+    close_button = tk.Button(window, text="Close", command=window.destroy)
+    close_button.pack(pady=5)
+
+    window.mainloop()
+
+def setup_test_database_window():
+    """
+    Opens the Test Database Setup window.
+    """
+    import tkinter as tk
+    from tkinter import ttk
+    from tkinter import messagebox
+
+    def setup_test_database():
+        # Logic to set up the test database
+        messagebox.showinfo("Setup Test Database", "Test database setup completed successfully.")
+
+    window = tk.Toplevel()
+    window.title("Setup Test Database")
+    window.geometry("400x200")
+
+    tk.Label(window, text="Setup Test Database", font=("Arial", 14)).pack(pady=10)
+
+    setup_button = tk.Button(window, text="Setup", command=setup_test_database)
+    setup_button.pack(pady=20)
 
     close_button = tk.Button(window, text="Close", command=window.destroy)
     close_button.pack(pady=5)

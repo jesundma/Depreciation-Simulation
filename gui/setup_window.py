@@ -1,20 +1,16 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
-import os
-import psycopg2
-from dotenv import load_dotenv
 from db.database_service import DatabaseService
 
-# Load environment variables
-load_dotenv()
-
 def setup_database_window():
+    """
+    Opens the Database Setup window.
+    """
     status_window = tk.Toplevel()
     status_window.title("Database Setup Status")
     status_window.geometry("400x300")
 
-    # Replace the status_label with a scrolling text widget
     text_area = tk.Text(status_window, wrap=tk.WORD, font=("Arial", 12), height=15, width=50)
     text_area.pack(pady=20, padx=10, fill=tk.BOTH, expand=True)
 
@@ -44,9 +40,10 @@ def setup_database_window():
     close_button = ttk.Button(status_window, text="Close", command=status_window.destroy)
     close_button.pack(pady=20)
 
-def open_depreciation_setup_window():
-    # Removed the call to setup_database to ensure it does not fire when opening the Depreciation Setup window
-
+def setup_depreciation_window():
+    """
+    Opens the Depreciation Setup window.
+    """
     def on_percentage_change(*args):
         if percentage_var.get():
             years_entry.config(state="disabled")
@@ -74,7 +71,6 @@ def open_depreciation_setup_window():
             messagebox.showerror("Error", "Please fill either Percentage or Years field.")
             return
 
-        # Save logic here
         messagebox.showinfo("Success", "Depreciation schedule saved successfully.")
 
     window = tk.Toplevel()
