@@ -35,7 +35,7 @@ def open_save_project_window(root):
 
     root.attributes('-disabled', True)
     popup = tk.Toplevel(root)
-    popup.title("Save Project")
+    popup.title("Create Project")
     popup.geometry("500x400")
 
     ttk.Label(popup, text="Project ID:").pack(pady=(10, 0))
@@ -54,7 +54,7 @@ def open_save_project_window(root):
     text_field = tk.Text(popup, height=5, width=30)
     text_field.pack()
 
-    save_button = ttk.Button(popup, text="Save", command=save_data)
+    save_button = ttk.Button(popup, text="Create", command=save_data)
     save_button.pack(pady=20)
 
     popup.protocol("WM_DELETE_WINDOW", close_window)

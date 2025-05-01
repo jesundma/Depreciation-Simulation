@@ -89,6 +89,8 @@ def health_check():
 if __name__ == "__main__":
     import sys
 
+    print("Application started")
+
     if len(sys.argv) > 1 and sys.argv[1] == "flask":
         # Run Flask server in development mode
         app.run(debug=True, host="127.0.0.1", port=5000)

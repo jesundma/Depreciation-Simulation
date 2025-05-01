@@ -181,14 +181,15 @@ def main_window():
     # Add Investment Projects menu
     investment_menu = tk.Menu(menu_bar, tearoff=0)
     investment_menu.add_command(label="Open Project", command=open_project)
-    investment_menu.add_command(label="Save Project", command=save_project)
+    investment_menu.add_command(label="Create Project", command=save_project)  # Updated label from 'Save Project' to 'Create Project'
     menu_bar.add_cascade(label="Investment Projects", menu=investment_menu)
 
-    # Add Database menu
+    # Add Setup and Maintenance menu
     database_menu = tk.Menu(menu_bar, tearoff=0)
-    # Removed the Open Database option from the Database menu
     database_menu.add_command(label="Database Setup", command=setup_database)
-    menu_bar.add_cascade(label="Database", menu=database_menu)
+    # Add Depreciation Setup under Setup and Maintenance menu
+    database_menu.add_command(label="Depreciation Setup", command=setup_database)
+    menu_bar.add_cascade(label="Setup and Maintenance", menu=database_menu)
 
     root.config(menu=menu_bar)
 
