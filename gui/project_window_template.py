@@ -16,11 +16,27 @@ def display_project_window(project):
     project_window.columnconfigure(0, weight=1)
     project_window.rowconfigure(0, weight=1)
 
+    # Add a scrollbar to the project window
+    scrollbar = ttk.Scrollbar(project_window, orient=tk.VERTICAL)
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+    # Configure the details frame to work with the scrollbar
+    canvas = tk.Canvas(project_window, yscrollcommand=scrollbar.set)
+    canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    scrollbar.config(command=canvas.yview)
+
+    # Create a frame inside the canvas
+    details_frame = ttk.Frame(canvas)
+
+    # Add the frame to the canvas
+    canvas.create_window((0, 0), window=details_frame, anchor="nw")
+
+    # Configure the canvas to resize with the window
+    details_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
     # Display project details
     ttk.Label(project_window, text="Project Details", font=("Arial", 14, "bold")).pack(pady=10)
-
-    details_frame = ttk.Frame(project_window)
-    details_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
     # Configure the details frame to expand with content
     details_frame.columnconfigure(1, weight=1)
@@ -65,33 +81,46 @@ def display_project_window(project):
         for idx, investment in enumerate(investments):
             ttk.Label(details_frame, text=f"{investment['year']}", font=("Arial", 10, "bold")).grid(row=6, column=idx + 1, padx=5, pady=5)
 
-        # Add investment amounts as a single row
+        # Add investment amounts as a single row with checkboxes
         ttk.Label(details_frame, text="Investment Amount", font=("Arial", 10, "bold")).grid(row=7, column=0, padx=5, pady=5)
         investment_entries = []
         for idx, investment in enumerate(investments):
             entry = ttk.Entry(details_frame)
             entry.insert(0, str(investment['investment_amount']))
             entry.grid(row=7, column=idx + 1, padx=5, pady=5)
-            investment_entries.append((investment['year'], entry))
+
+            # Add a checkbox for each investment
+            var = tk.BooleanVar()
+            checkbox = ttk.Checkbutton(details_frame, variable=var)
+            checkbox.grid(row=8, column=idx + 1, padx=5, pady=5)
+
+            investment_entries.append((investment['year'], entry, var))
 
         def save_changes():
             updated_investments = {}
-            for year, entry in investment_entries:
+            depreciation_start_years = {}
+            for year, entry, var in investment_entries:
                 try:
                     updated_investments[year] = float(entry.get())
+                    if var.get():  # If the checkbox is ticked
+                        depreciation_start_years[year] = year
+                    else:
+                        depreciation_start_years[year] = None  # Set to NULL if not ticked
                 except ValueError:
                     updated_investments[year] = 0.0
 
             print(f"Saving updated investments for project ID {project['project_id']}: {updated_investments}")
+            print(f"Saving depreciation start years for project ID {project['project_id']}: {depreciation_start_years}")
             db_service.save_investments(project['project_id'], updated_investments)
-            print("Investments updated successfully.")
+            db_service.save_depreciation_start_years(project['project_id'], depreciation_start_years)
+            print("Investments and depreciation start years updated successfully.")
 
         save_changes_button = ttk.Button(details_frame, text="Save Changes", command=save_changes)
-        save_changes_button.grid(row=8, column=0, columnspan=len(investments) + 1, pady=10)
+        save_changes_button.grid(row=9, column=0, columnspan=len(investments) + 1, pady=10)
 
         # Add a Close button next to the Save Changes button
         close_button = ttk.Button(details_frame, text="Close", command=project_window.destroy)
-        close_button.grid(row=9, column=0, columnspan=len(investments) + 1, pady=10, padx=5)
+        close_button.grid(row=10, column=0, columnspan=len(investments) + 1, pady=10, padx=5)
     else:
         print("No investment schedule found.")
         # Clear any previous content in the details_frame
@@ -149,9 +178,9 @@ def display_project_window(project):
                         investments = {}
                         for year, entry, var in year_fields:
                             try:
-                                investments[year] = float(entry.get())
+                                investments[year] = (float(entry.get()), year if var.get() else None)
                             except ValueError:
-                                investments[year] = 0.0
+                                investments[year] = (0.0, None)
 
                         print(f"Saving investments for project ID {project['project_id']}: {investments}")
                         db_service.save_investments(project['project_id'], investments)

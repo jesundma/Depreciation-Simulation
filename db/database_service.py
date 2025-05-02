@@ -59,6 +59,7 @@ class DatabaseService:
                     project_id TEXT REFERENCES projects(project_id),
                     year INT,
                     investment_amount NUMERIC,
+                    depreciation_start_year INT,
                     PRIMARY KEY (project_id, year)
                 );
 
@@ -114,18 +115,34 @@ class DatabaseService:
 
     def save_investments(self, project_id, investments):
         """
-        Save yearly investments for a given project ID.
+        Save yearly investments and depreciation start years for a given project ID.
         :param project_id: The ID of the project.
-        :param investments: A dictionary of year to investment amount.
+        :param investments: A dictionary where the key is the year and the value is a tuple of (investment_amount, depreciation_start_year).
         """
         query = """
-            INSERT INTO investments (project_id, year, investment_amount)
-            VALUES (%s, %s, %s)
+            INSERT INTO investments (project_id, year, investment_amount, depreciation_start_year)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT (project_id, year) DO UPDATE
-            SET investment_amount = EXCLUDED.investment_amount;
+            SET investment_amount = EXCLUDED.investment_amount,
+                depreciation_start_year = EXCLUDED.depreciation_start_year;
         """
-        for year, amount in investments.items():
-            params = (project_id, year, amount)
+        for year, (amount, start_year) in investments.items():
+            params = (project_id, year, amount, start_year)
+            self.execute_query(query, params)
+
+    def save_depreciation_start_years(self, project_id, depreciation_start_years):
+        """
+        Save depreciation start years for a given project ID.
+        :param project_id: The ID of the project.
+        :param depreciation_start_years: A dictionary mapping years to depreciation start years.
+        """
+        query = """
+            UPDATE investments
+            SET depreciation_start_year = %s
+            WHERE project_id = %s AND year = %s;
+        """
+        for year, start_year in depreciation_start_years.items():
+            params = (start_year, project_id, year)
             self.execute_query(query, params)
 
     def clear_all_tables(self):
@@ -163,6 +180,7 @@ class DatabaseService:
                 project_id TEXT REFERENCES projects(project_id),
                 year INT,
                 investment_amount NUMERIC,
+                depreciation_start_year INT,
                 PRIMARY KEY (project_id, year)
             );
 

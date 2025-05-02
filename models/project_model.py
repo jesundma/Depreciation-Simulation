@@ -12,6 +12,7 @@ class Project:
 class Investment:
     project_id: str  # Foreign key to bind with Project
     yearly_investments: Dict[int, float] = field(default_factory=dict)
+    depreciation_start_years: Dict[int, int] = field(default_factory=dict)  # Maps investment years to their depreciation start years
 
 @dataclass
 class DepreciationSchedule:
