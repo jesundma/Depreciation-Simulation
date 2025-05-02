@@ -81,6 +81,9 @@ def display_project_window(project):
         for idx, investment in enumerate(investments):
             ttk.Label(details_frame, text=f"{investment['year']}", font=("Arial", 10, "bold")).grid(row=6, column=idx + 1, padx=5, pady=5)
 
+        # Fetch depreciation start years from the database
+        depreciation_start_years = {investment['year']: investment['depreciation_start_year'] for investment in investments}
+
         # Add investment amounts as a single row with checkboxes
         ttk.Label(details_frame, text="Investment Amount", font=("Arial", 10, "bold")).grid(row=7, column=0, padx=5, pady=5)
         investment_entries = []
@@ -89,8 +92,8 @@ def display_project_window(project):
             entry.insert(0, str(investment['investment_amount']))
             entry.grid(row=7, column=idx + 1, padx=5, pady=5)
 
-            # Add a checkbox for each investment
-            var = tk.BooleanVar()
+            # Add a checkbox for each investment and tick it if the year is not null
+            var = tk.BooleanVar(value=bool(depreciation_start_years.get(investment['year'])))
             checkbox = ttk.Checkbutton(details_frame, variable=var)
             checkbox.grid(row=8, column=idx + 1, padx=5, pady=5)
 
@@ -98,21 +101,14 @@ def display_project_window(project):
 
         def save_changes():
             updated_investments = {}
-            depreciation_start_years = {}
             for year, entry, var in investment_entries:
                 try:
-                    updated_investments[year] = float(entry.get())
-                    if var.get():  # If the checkbox is ticked
-                        depreciation_start_years[year] = year
-                    else:
-                        depreciation_start_years[year] = None  # Set to NULL if not ticked
+                    updated_investments[year] = (float(entry.get()), year if var.get() else None)
                 except ValueError:
-                    updated_investments[year] = 0.0
+                    updated_investments[year] = (0.0, None)
 
             print(f"Saving updated investments for project ID {project['project_id']}: {updated_investments}")
-            print(f"Saving depreciation start years for project ID {project['project_id']}: {depreciation_start_years}")
-            db_service.save_investments(project['project_id'], updated_investments)
-            db_service.save_depreciation_start_years(project['project_id'], depreciation_start_years)
+            db_service.save_investment_details(project['project_id'], updated_investments)
             print("Investments and depreciation start years updated successfully.")
 
         save_changes_button = ttk.Button(details_frame, text="Save Changes", command=save_changes)

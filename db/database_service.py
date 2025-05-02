@@ -91,9 +91,9 @@ class DatabaseService:
         """
         Fetch the investment schedule for a given project ID.
         :param project_id: The ID of the project.
-        :return: A list of investments with year and amount.
+        :return: A list of investments with year, amount, and depreciation start year.
         """
-        query = "SELECT year, investment_amount FROM investments WHERE project_id = %s ORDER BY year"
+        query = "SELECT year, investment_amount, depreciation_start_year FROM investments WHERE project_id = %s ORDER BY year"
         params = (project_id,)
         return self.execute_query(query, params, fetch=True)
 
@@ -116,6 +116,23 @@ class DatabaseService:
     def save_investments(self, project_id, investments):
         """
         Save yearly investments and depreciation start years for a given project ID.
+        :param project_id: The ID of the project.
+        :param investments: A dictionary where the key is the year and the value is a tuple of (investment_amount, depreciation_start_year).
+        """
+        query = """
+            INSERT INTO investments (project_id, year, investment_amount, depreciation_start_year)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (project_id, year) DO UPDATE
+            SET investment_amount = EXCLUDED.investment_amount,
+                depreciation_start_year = EXCLUDED.depreciation_start_year;
+        """
+        for year, (amount, start_year) in investments.items():
+            params = (project_id, year, amount, start_year)
+            self.execute_query(query, params)
+
+    def save_investment_details(self, project_id, investments):
+        """
+        Save or update investment details, including amounts and depreciation start years.
         :param project_id: The ID of the project.
         :param investments: A dictionary where the key is the year and the value is a tuple of (investment_amount, depreciation_start_year).
         """
