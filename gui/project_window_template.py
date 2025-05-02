@@ -12,11 +12,19 @@ def display_project_window(project):
     project_window.title(f"Project: {project['project_id']}")
     project_window.geometry("400x400")
 
+    # Configure the project window to dynamically adjust with content
+    project_window.columnconfigure(0, weight=1)
+    project_window.rowconfigure(0, weight=1)
+
     # Display project details
     ttk.Label(project_window, text="Project Details", font=("Arial", 14, "bold")).pack(pady=10)
 
     details_frame = ttk.Frame(project_window)
     details_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    # Configure the details frame to expand with content
+    details_frame.columnconfigure(1, weight=1)
+    details_frame.rowconfigure(0, weight=1)
 
     # Add project details section
     ttk.Label(details_frame, text="Project Details:", font=("Arial", 12, "bold")).grid(row=0, column=0, columnspan=2, sticky=tk.W, padx=5, pady=5)
@@ -49,26 +57,22 @@ def display_project_window(project):
 
     if investments:
         print("Displaying investment schedule...")
-        ttk.Label(details_frame, text="Investment Schedule:", font=("Arial", 10, "bold")).grid(row=5, column=0, sticky=tk.W, padx=5, pady=5)
+        # Display investment schedule with years as columns
+        ttk.Label(details_frame, text="Investment Schedule:", font=("Arial", 10, "bold")).grid(row=5, column=0, columnspan=len(investments) + 1, sticky=tk.W, padx=5, pady=5)
 
+        # Add year headers as columns
+        ttk.Label(details_frame, text="Year", font=("Arial", 10, "bold")).grid(row=6, column=0, padx=5, pady=5)
+        for idx, investment in enumerate(investments):
+            ttk.Label(details_frame, text=f"{investment['year']}", font=("Arial", 10, "bold")).grid(row=6, column=idx + 1, padx=5, pady=5)
+
+        # Add investment amounts as a single row
+        ttk.Label(details_frame, text="Investment Amount", font=("Arial", 10, "bold")).grid(row=7, column=0, padx=5, pady=5)
         investment_entries = []
-        for idx, investment in enumerate(investments, start=6):
-            ttk.Label(details_frame, text=f"Year {investment['year']}:", font=("Arial", 10)).grid(row=idx, column=0, sticky=tk.W, padx=5, pady=5)
+        for idx, investment in enumerate(investments):
             entry = ttk.Entry(details_frame)
             entry.insert(0, str(investment['investment_amount']))
-            entry.grid(row=idx, column=1, sticky=tk.W, padx=5, pady=5)
+            entry.grid(row=7, column=idx + 1, padx=5, pady=5)
             investment_entries.append((investment['year'], entry))
-
-        def show_changes_saved_window():
-            """Display a window indicating changes were saved successfully."""
-            saved_window = tk.Toplevel(project_window)
-            saved_window.title("Changes Saved")
-            saved_window.geometry("300x150")
-
-            ttk.Label(saved_window, text="Changes saved successfully!", font=("Arial", 12, "bold")).pack(pady=20)
-
-            close_button = ttk.Button(saved_window, text="Close", command=saved_window.destroy)
-            close_button.pack(pady=10)
 
         def save_changes():
             updated_investments = {}
@@ -82,15 +86,12 @@ def display_project_window(project):
             db_service.save_investments(project['project_id'], updated_investments)
             print("Investments updated successfully.")
 
-            # Show the changes saved window
-            show_changes_saved_window()
-
         save_changes_button = ttk.Button(details_frame, text="Save Changes", command=save_changes)
-        save_changes_button.grid(row=len(investments) + 6, column=0, columnspan=2, pady=10)
+        save_changes_button.grid(row=8, column=0, columnspan=len(investments) + 1, pady=10)
 
         # Add a Close button next to the Save Changes button
         close_button = ttk.Button(details_frame, text="Close", command=project_window.destroy)
-        close_button.grid(row=len(investments) + 6, column=2, pady=10, padx=5)
+        close_button.grid(row=9, column=0, columnspan=len(investments) + 1, pady=10, padx=5)
     else:
         print("No investment schedule found.")
         # Clear any previous content in the details_frame
@@ -168,13 +169,9 @@ def display_project_window(project):
             submit_button.pack(pady=10)
 
         # Update the no investment button to open the new window
-        no_investment_button = ttk.Button(details_frame, text="No investment schedule", command=open_investment_year_window)
+        no_investment_button = ttk.Button(details_frame, text="Add Investment Schedule", command=open_investment_year_window)
         no_investment_button.grid(row=0, column=0, columnspan=2, pady=10)
 
-    # Ensure the Save Investments button is always shown
-    save_button = ttk.Button(details_frame, text="Save Investments", command=open_investment_year_window)
-    save_button.grid(row=6, column=0, columnspan=2, pady=10)
-
-    # Add a close button
-    close_button = ttk.Button(project_window, text="Close", command=project_window.destroy)
-    close_button.pack(pady=10)
+        # Add a Close button for closing the window without changes
+        close_button = ttk.Button(details_frame, text="Close", command=project_window.destroy)
+        close_button.grid(row=1, column=0, columnspan=2, pady=10)
