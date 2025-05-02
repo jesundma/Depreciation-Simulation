@@ -50,9 +50,47 @@ def display_project_window(project):
     if investments:
         print("Displaying investment schedule...")
         ttk.Label(details_frame, text="Investment Schedule:", font=("Arial", 10, "bold")).grid(row=5, column=0, sticky=tk.W, padx=5, pady=5)
+
+        investment_entries = []
         for idx, investment in enumerate(investments, start=6):
             ttk.Label(details_frame, text=f"Year {investment['year']}:", font=("Arial", 10)).grid(row=idx, column=0, sticky=tk.W, padx=5, pady=5)
-            ttk.Label(details_frame, text=f"{investment['investment_amount']}").grid(row=idx, column=1, sticky=tk.W, padx=5, pady=5)
+            entry = ttk.Entry(details_frame)
+            entry.insert(0, str(investment['investment_amount']))
+            entry.grid(row=idx, column=1, sticky=tk.W, padx=5, pady=5)
+            investment_entries.append((investment['year'], entry))
+
+        def show_changes_saved_window():
+            """Display a window indicating changes were saved successfully."""
+            saved_window = tk.Toplevel(project_window)
+            saved_window.title("Changes Saved")
+            saved_window.geometry("300x150")
+
+            ttk.Label(saved_window, text="Changes saved successfully!", font=("Arial", 12, "bold")).pack(pady=20)
+
+            close_button = ttk.Button(saved_window, text="Close", command=saved_window.destroy)
+            close_button.pack(pady=10)
+
+        def save_changes():
+            updated_investments = {}
+            for year, entry in investment_entries:
+                try:
+                    updated_investments[year] = float(entry.get())
+                except ValueError:
+                    updated_investments[year] = 0.0
+
+            print(f"Saving updated investments for project ID {project['project_id']}: {updated_investments}")
+            db_service.save_investments(project['project_id'], updated_investments)
+            print("Investments updated successfully.")
+
+            # Show the changes saved window
+            show_changes_saved_window()
+
+        save_changes_button = ttk.Button(details_frame, text="Save Changes", command=save_changes)
+        save_changes_button.grid(row=len(investments) + 6, column=0, columnspan=2, pady=10)
+
+        # Add a Close button next to the Save Changes button
+        close_button = ttk.Button(details_frame, text="Close", command=project_window.destroy)
+        close_button.grid(row=len(investments) + 6, column=2, pady=10, padx=5)
     else:
         print("No investment schedule found.")
         # Clear any previous content in the details_frame
