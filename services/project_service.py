@@ -35,3 +35,12 @@ class ProjectService:
             operations=operations,
             description=description
         )
+
+    def calculate_depreciations(self, project_id):
+        """
+        Calculate depreciations for a given project using data from Investments and Depreciation Schedules tables.
+        :param project_id: The ID of the project.
+        :return: A dictionary containing calculated depreciations.
+        """
+        # Placeholder for logic to fetch data and calculate depreciations
+        pass

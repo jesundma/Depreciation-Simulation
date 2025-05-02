@@ -6,9 +6,9 @@ from models.project_model import Project
 import random
 import string
 
-def setup_database_window():
+def setup_database():
     """
-    Opens the Database Setup window.
+    Sets up the database by clearing all tables and creating new ones.
     """
     status_window = tk.Toplevel()
     status_window.title("Database Setup Status")

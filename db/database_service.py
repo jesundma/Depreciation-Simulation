@@ -65,9 +65,10 @@ class DatabaseService:
 
                 CREATE TABLE depreciation_schedules (
                     project_id TEXT REFERENCES projects(project_id),
-                    year INT,
-                    schedule TEXT,
-                    PRIMARY KEY (project_id, year)
+                    depreciation_percentage NUMERIC,
+                    depreciation_years INT,
+                    method_description TEXT,
+                    PRIMARY KEY (project_id)
                 );
 
                 CREATE TABLE calculated_depreciations (
@@ -203,9 +204,10 @@ class DatabaseService:
 
             CREATE TABLE IF NOT EXISTS depreciation_schedules (
                 project_id TEXT REFERENCES projects(project_id),
-                year INT,
-                schedule TEXT,
-                PRIMARY KEY (project_id, year)
+                depreciation_percentage NUMERIC,
+                depreciation_years INT,
+                method_description TEXT,
+                PRIMARY KEY (project_id)
             );
 
             CREATE TABLE IF NOT EXISTS calculated_depreciations (
