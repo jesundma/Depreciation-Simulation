@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from services.project_service import DatabaseService
 from db.database_service import DatabaseService
+from services.project_service import ProjectService
 
 def display_project_window(project):
     """
@@ -134,7 +135,11 @@ def display_project_window(project):
         button_text = "Recalculate Depreciations" if has_depreciations else "No Depreciations Calculated"
 
         # Add a button to calculate or recalculate depreciation
-        calculate_depreciation_button = ttk.Button(details_frame, text=button_text, command=lambda: print("Calculate/Recalculate Depreciation clicked"))
+        calculate_depreciation_button = ttk.Button(
+            details_frame, 
+            text=button_text, 
+            command=lambda: ProjectService.handle_depreciation_calculation(project['project_id'])
+        )
         calculate_depreciation_button.grid(row=12, column=0, columnspan=2, pady=10)
     else:
         print("No investment schedule found.")

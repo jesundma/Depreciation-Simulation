@@ -36,6 +36,22 @@ class ProjectService:
             description=description
         )
 
+    @staticmethod
+    def get_depreciation_method_type(project_id: str) -> str:
+        """
+        Determine the type of depreciation method for the given project.
+        :param project_id: The ID of the project.
+        :return: "percentage" if the method is percentage-based, "years" if it is years-based.
+        """
+        db_service = DatabaseService()
+        method_details = db_service.get_depreciation_method_details(project_id)
+        if method_details['depreciation_percentage'] is not None and method_details['depreciation_years'] is None:
+            return "percentage"
+        elif method_details['depreciation_years'] is not None:
+            return "years"
+        else:
+            raise ValueError("Invalid depreciation method configuration.")
+
     def calculate_depreciations(self, project_id):
         """
         Calculate depreciations for a given project using data from Investments and Depreciation Schedules tables.
@@ -44,6 +60,38 @@ class ProjectService:
         """
         # Placeholder for logic to fetch data and calculate depreciations
         pass
+
+    @staticmethod
+    def handle_depreciation_calculation(project_id: str):
+        """
+        Handle the depreciation calculation by determining the method type and calling the appropriate function.
+        :param project_id: The ID of the project.
+        """
+        method_type = ProjectService.get_depreciation_method_type(project_id)
+        if method_type == "percentage":
+            print(f"Calculating depreciation using percentage method for project ID: {project_id}")
+            ProjectService.calculate_depreciation_percentage(project_id)
+        elif method_type == "years":
+            print(f"Calculating depreciation using years method for project ID: {project_id}")
+            ProjectService.calculate_depreciation_years(project_id)
+        else:
+            raise ValueError("Unknown depreciation method type.")
+
+    @staticmethod
+    def calculate_depreciation_percentage(project_id: str):
+        """
+        Placeholder for percentage-based depreciation calculation.
+        :param project_id: The ID of the project.
+        """
+        print(f"[DEBUG] Placeholder: Calculating percentage-based depreciation for project ID: {project_id}")
+
+    @staticmethod
+    def calculate_depreciation_years(project_id: str):
+        """
+        Placeholder for years-based depreciation calculation.
+        :param project_id: The ID of the project.
+        """
+        print(f"[DEBUG] Placeholder: Calculating years-based depreciation for project ID: {project_id}")
 
 def fetch_depreciation_methods():
     """

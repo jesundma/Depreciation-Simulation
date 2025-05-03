@@ -351,3 +351,22 @@ class DatabaseService:
         params = (project_id,)
         result = self.execute_query(query, params, fetch=True)
         return result[0]['exists'] if result else False
+
+    def get_depreciation_method_details(self, project_id):
+        """
+        Fetch the depreciation method details (percentage and years) for a given project ID.
+        :param project_id: The ID of the project.
+        :return: A dictionary containing depreciation_percentage and depreciation_years.
+        """
+        query = """
+            SELECT depreciation_percentage, depreciation_years 
+            FROM depreciation_schedules 
+            WHERE depreciation_id = (
+                SELECT depreciation_method 
+                FROM projects 
+                WHERE project_id = %s
+            )
+        """
+        params = (project_id,)
+        result = self.execute_query(query, params, fetch=True)
+        return result[0] if result else None
