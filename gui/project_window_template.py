@@ -126,6 +126,16 @@ def display_project_window(project):
         # Add a Close button next to the Save Changes button
         close_button = ttk.Button(details_frame, text="Close", command=project_window.destroy)
         close_button.grid(row=11, column=0, columnspan=len(investments) + 1, pady=10, padx=5)
+
+        # Fetch whether depreciations are calculated for the project
+        has_depreciations = db_service.has_calculated_depreciations(project['project_id'])
+
+        # Set button text based on depreciation status
+        button_text = "Recalculate Depreciations" if has_depreciations else "No Depreciations Calculated"
+
+        # Add a button to calculate or recalculate depreciation
+        calculate_depreciation_button = ttk.Button(details_frame, text=button_text, command=lambda: print("Calculate/Recalculate Depreciation clicked"))
+        calculate_depreciation_button.grid(row=12, column=0, columnspan=2, pady=10)
     else:
         print("No investment schedule found.")
         # Clear any previous content in the details_frame

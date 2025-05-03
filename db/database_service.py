@@ -340,3 +340,14 @@ class DatabaseService:
         except Exception as e:
             print(f"Error fetching depreciation methods: {e}")
             return {}
+
+    def has_calculated_depreciations(self, project_id):
+        """
+        Check if there are calculated depreciations for the given project ID.
+        :param project_id: The ID of the project.
+        :return: True if calculated depreciations exist, False otherwise.
+        """
+        query = "SELECT EXISTS (SELECT 1 FROM calculated_depreciations WHERE project_id = %s)"
+        params = (project_id,)
+        result = self.execute_query(query, params, fetch=True)
+        return result[0]['exists'] if result else False
