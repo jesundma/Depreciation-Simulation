@@ -64,11 +64,10 @@ class DatabaseService:
                 );
 
                 CREATE TABLE depreciation_schedules (
-                    project_id TEXT REFERENCES projects(project_id),
+                    depreciation_id SERIAL PRIMARY KEY,
                     depreciation_percentage NUMERIC,
                     depreciation_years INT,
-                    method_description TEXT,
-                    PRIMARY KEY (project_id)
+                    method_description TEXT
                 );
 
                 CREATE TABLE calculated_depreciations (
@@ -163,6 +162,42 @@ class DatabaseService:
             params = (start_year, project_id, year)
             self.execute_query(query, params)
 
+    def save_depreciation_schedule(self, depreciation_percentage, depreciation_years, method_description):
+        """
+        Save or update a general depreciation schedule in the database.
+        :param depreciation_percentage: Depreciation percentage (can be None).
+        :param depreciation_years: Depreciation years (can be None).
+        :param method_description: Description of the depreciation method.
+        """
+        # Check if a record with the same depreciation_percentage or depreciation_years exists
+        check_query = """
+            SELECT depreciation_id FROM depreciation_schedules
+            WHERE depreciation_percentage = %s OR depreciation_years = %s
+        """
+        params = (depreciation_percentage, depreciation_years)
+        result = self.execute_query(check_query, params, fetch=True)
+
+        if result:
+            # Update existing record
+            depreciation_id = result[0]['depreciation_id']
+            update_query = """
+                UPDATE depreciation_schedules
+                SET depreciation_percentage = %s,
+                    depreciation_years = %s,
+                    method_description = %s
+                WHERE depreciation_id = %s
+            """
+            update_params = (depreciation_percentage, depreciation_years, method_description, depreciation_id)
+            self.execute_query(update_query, update_params)
+        else:
+            # Insert new record
+            insert_query = """
+                INSERT INTO depreciation_schedules (depreciation_percentage, depreciation_years, method_description)
+                VALUES (%s, %s, %s)
+            """
+            insert_params = (depreciation_percentage, depreciation_years, method_description)
+            self.execute_query(insert_query, insert_params)
+
     def clear_all_tables(self):
         """
         Clear all tables in the database.
@@ -203,11 +238,10 @@ class DatabaseService:
             );
 
             CREATE TABLE IF NOT EXISTS depreciation_schedules (
-                project_id TEXT REFERENCES projects(project_id),
+                depreciation_id SERIAL PRIMARY KEY,
                 depreciation_percentage NUMERIC,
                 depreciation_years INT,
-                method_description TEXT,
-                PRIMARY KEY (project_id)
+                method_description TEXT
             );
 
             CREATE TABLE IF NOT EXISTS calculated_depreciations (

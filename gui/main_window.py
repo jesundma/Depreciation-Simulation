@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from .save_project_window import open_save_project_window
 from .open_project_window import open_open_project_window
-from .setup_window import setup_database, setup_depreciation_window, setup_test_database
+from .setup_window import setup_database_window, setup_depreciation_window, setup_test_database
 import os
 import psycopg2
 from dotenv import load_dotenv

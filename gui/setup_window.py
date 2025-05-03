@@ -6,7 +6,7 @@ from models.project_model import Project
 import random
 import string
 
-def setup_database():
+def setup_database_window():
     """
     Sets up the database by clearing all tables and creating new ones.
     """
@@ -45,7 +45,7 @@ def setup_database():
 
 def setup_depreciation_window():
     """
-    Opens the Depreciation Setup window.
+    Opens the Depreciation Setup window for creating a general depreciation schedule.
     """
     def on_percentage_change(*args):
         if percentage_var.get():
@@ -60,33 +60,32 @@ def setup_depreciation_window():
             percentage_entry.config(state="normal")
 
     def save_depreciation_schedule():
-        project_id = project_id_entry.get()
-        schedule = schedule_entry.get()
         percentage = percentage_var.get()
         years = years_var.get()
         method_description = method_description_entry.get()
 
-        if not project_id or not schedule or not method_description:
-            messagebox.showerror("Error", "Please fill in all required fields.")
+        if not method_description:
+            messagebox.showerror("Error", "Please fill in the Method Description field.")
             return
 
         if not percentage and not years:
             messagebox.showerror("Error", "Please fill either Percentage or Years field.")
             return
 
-        messagebox.showinfo("Success", "Depreciation schedule saved successfully.")
+        try:
+            db_service = DatabaseService()
+            db_service.save_depreciation_schedule(
+                depreciation_percentage=float(percentage) if percentage else None,
+                depreciation_years=int(years) if years else None,
+                method_description=method_description
+            )
+            messagebox.showinfo("Success", "General depreciation schedule saved successfully.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save depreciation schedule: {e}")
 
     window = tk.Toplevel()
-    window.title("Depreciation Setup")
-    window.geometry("400x400")
-
-    tk.Label(window, text="Project ID:").pack(pady=5)
-    project_id_entry = tk.Entry(window)
-    project_id_entry.pack(pady=5)
-
-    tk.Label(window, text="Schedule:").pack(pady=5)
-    schedule_entry = tk.Entry(window)
-    schedule_entry.pack(pady=5)
+    window.title("General Depreciation Setup")
+    window.geometry("400x300")
 
     tk.Label(window, text="Depreciation Percentage:").pack(pady=5)
     percentage_var = tk.StringVar()
@@ -165,3 +164,16 @@ def setup_test_database():
 
     close_button = ttk.Button(status_window, text="Close", command=status_window.destroy)
     close_button.pack(pady=20)
+
+def show_update_status():
+    """
+    Displays a window to inform the user that the depreciation schedule description has been updated.
+    """
+    status_window = tk.Toplevel()
+    status_window.title("Update Status")
+    status_window.geometry("300x150")
+
+    tk.Label(status_window, text="Depreciation schedule description updated successfully!", font=("Arial", 12), wraplength=250, justify="center").pack(pady=20)
+
+    close_button = ttk.Button(status_window, text="Close", command=status_window.destroy)
+    close_button.pack(pady=10)
