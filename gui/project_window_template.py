@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from services.project_service import DatabaseService
+from db.database_service import DatabaseService
 
 def display_project_window(project):
     """
@@ -136,6 +137,15 @@ def display_project_window(project):
             ttk.Label(year_window, text="Enter End Year:", font=("Arial", 10, "bold")).pack(pady=10)
             end_year_entry = ttk.Entry(year_window)
             end_year_entry.pack(pady=5)
+
+            # Create an instance of DatabaseService to fetch depreciation methods
+            database_service = DatabaseService()
+            depreciation_methods = database_service.fetch_depreciation_methods()
+
+            ttk.Label(year_window, text="Select Depreciation Method:", font=("Arial", 10, "bold")).pack(pady=10)
+            depreciation_method_var = tk.StringVar()
+            depreciation_method_dropdown = ttk.Combobox(year_window, textvariable=depreciation_method_var, values=depreciation_methods, state="readonly")
+            depreciation_method_dropdown.pack(pady=5)
 
             def open_yearly_fields_window():
                 try:

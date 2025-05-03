@@ -44,3 +44,17 @@ class ProjectService:
         """
         # Placeholder for logic to fetch data and calculate depreciations
         pass
+
+def fetch_depreciation_methods():
+    """
+    Fetches depreciation method descriptions from the database.
+    """
+    try:
+        from db.database_service import DatabaseService
+        db_service = DatabaseService()
+        query = "SELECT method_description FROM depreciation_schedules"
+        results = db_service.execute_query(query, fetch=True)
+        return [row['method_description'] for row in results]
+    except Exception as e:
+        print(f"Error fetching depreciation methods: {e}")
+        return []

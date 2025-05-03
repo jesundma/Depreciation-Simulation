@@ -4,6 +4,7 @@ import requests
 import os
 from services.project_service import ProjectService
 from gui.project_window_template import display_project_window
+from db.database_service import DatabaseService
 
 FLASK_URL = os.getenv("FLASK_URL", "http://127.0.0.1:5000")
 
@@ -115,20 +116,6 @@ def open_open_project_window(root):
             except Exception as e:
                 print(f"Error accessing local database: {e}")
 
-    def fetch_depreciation_methods():
-        """
-        Fetches depreciation method descriptions from the database.
-        """
-        try:
-            from db.database_service import DatabaseService
-            db_service = DatabaseService()
-            query = "SELECT method_description FROM depreciation_schedules"
-            results = db_service.execute_query(query, fetch=True)
-            return [row['method_description'] for row in results]
-        except Exception as e:
-            print(f"Error fetching depreciation methods: {e}")
-            return []
-
     root.attributes('-disabled', True)
     popup = tk.Toplevel(root)
     popup.title("Open Project")
@@ -152,7 +139,8 @@ def open_open_project_window(root):
     text_field.pack(pady=(0, 10))
 
     # Fetch depreciation methods for the dropdown
-    depreciation_methods = fetch_depreciation_methods()
+    database_service = DatabaseService()
+    depreciation_methods = database_service.fetch_depreciation_methods()
 
     ttk.Label(popup, text="Depreciation Method:").pack(pady=(10, 5))
     depreciation_method_var = tk.StringVar()

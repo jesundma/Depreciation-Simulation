@@ -52,7 +52,8 @@ class DatabaseService:
                     project_id TEXT PRIMARY KEY,
                     branch TEXT,
                     operations TEXT,
-                    description TEXT
+                    description TEXT,
+                    depreciation_method INT REFERENCES depreciation_schedules(depreciation_id)
                 );
 
                 CREATE TABLE investments (
@@ -323,3 +324,15 @@ class DatabaseService:
             $$;
         """
         self.execute_query(query)
+
+    def fetch_depreciation_methods(self):
+        """
+        Fetches depreciation method descriptions from the database.
+        """
+        try:
+            query = "SELECT method_description FROM depreciation_schedules"
+            results = self.execute_query(query, fetch=True)
+            return [row['method_description'] for row in results]
+        except Exception as e:
+            print(f"Error fetching depreciation methods: {e}")
+            return []

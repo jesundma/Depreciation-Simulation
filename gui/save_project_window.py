@@ -3,6 +3,7 @@ from tkinter import ttk
 from tkinter import messagebox
 from models.project_model import Project
 from services.project_service import ProjectService
+from db.database_service import DatabaseService
 
 def open_save_project_window(root):
     def save_data():
@@ -10,8 +11,9 @@ def open_save_project_window(root):
         branch = entry_branch.get()
         operations = entry_operations.get()
         description = text_field.get("1.0", tk.END).strip()
+        depreciation_method = depreciation_method_var.get()
 
-        if not project_id or not branch or not operations or not description:
+        if not project_id or not branch or not operations or not description or not depreciation_method:
             messagebox.showerror("Input Error", "All fields must be filled.")
             return
 
@@ -53,6 +55,14 @@ def open_save_project_window(root):
     ttk.Label(popup, text="Description:").pack(pady=(10, 0))
     text_field = tk.Text(popup, height=5, width=30)
     text_field.pack()
+
+    database_service = DatabaseService()
+    depreciation_methods = database_service.fetch_depreciation_methods()
+
+    ttk.Label(popup, text="Depreciation Method:").pack(pady=(10, 0))
+    depreciation_method_var = tk.StringVar()
+    depreciation_method_dropdown = ttk.Combobox(popup, textvariable=depreciation_method_var, values=depreciation_methods, state="readonly")
+    depreciation_method_dropdown.pack()
 
     save_button = ttk.Button(popup, text="Create", command=save_data)
     save_button.pack(pady=20)

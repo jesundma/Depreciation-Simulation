@@ -7,6 +7,7 @@ class Project:
     branch: str
     operations: str
     description: str
+    depreciation_method: int  # Foreign key referencing depreciation_schedules(depreciation_id)
 
 @dataclass
 class Investment:
