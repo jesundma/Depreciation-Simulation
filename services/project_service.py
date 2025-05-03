@@ -102,8 +102,40 @@ class ProjectService:
         Calculate percentage-based depreciation for a project.
         :param project_id: The ID of the project.
         """
+        from db.database_service import DatabaseService
+        db_service = DatabaseService()
+
         # Fetch and preprocess the investment data
         df = ProjectService.get_investment_dataframe(project_id)
+
+        # Query the depreciation method details for the project
+        method_details = db_service.get_depreciation_method_details(project_id)
+        if not method_details or "depreciation_percentage" not in method_details:
+            raise ValueError(f"Depreciation percentage not found for project ID: {project_id}")
+
+        depreciation_percentage = method_details["depreciation_percentage"]
+        print(f"[DEBUG] Depreciation Percentage for Project {project_id}: {depreciation_percentage}%")
+
+        # Convert percentage to a float for calculations
+        depreciation_factor = float(depreciation_percentage) / 100
+
+        # Initialize columns for Remaining Asset Value and Depreciation
+        df["Remaining Asset Value"] = 0.0
+        df["Depreciation"] = 0.0
+
+        # Calculate Remaining Asset Value and Depreciation iteratively
+        for i in range(len(df)):
+            if i == 0:
+                # For the first year, Remaining Asset Value is the Investment Amount
+                df.loc[i, "Remaining Asset Value"] = df.loc[i, "Investment Amount"]
+                # Depreciation is applied directly to the first year's Remaining Asset Value
+                df.loc[i, "Depreciation"] = df.loc[i, "Remaining Asset Value"] * depreciation_factor
+                df.loc[i, "Remaining Asset Value"] -= df.loc[i, "Depreciation"]
+            else:
+                # For subsequent years, Remaining Asset Value is reduced by the depreciation factor
+                df.loc[i, "Remaining Asset Value"] = df.loc[i - 1, "Remaining Asset Value"] * (1 - depreciation_factor)
+                # Depreciation is the difference between the previous and current Remaining Asset Value
+                df.loc[i, "Depreciation"] = df.loc[i - 1, "Remaining Asset Value"] - df.loc[i, "Remaining Asset Value"]
 
         # Debug: Print the DataFrame
         print("[DEBUG] Investment DataFrame for Percentage Depreciation:")
