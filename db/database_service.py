@@ -48,6 +48,13 @@ class DatabaseService:
 
             # Create new tables
             cur.execute("""
+                CREATE TABLE depreciation_schedules (
+                    depreciation_id SERIAL PRIMARY KEY,
+                    depreciation_percentage NUMERIC,
+                    depreciation_years INT,
+                    method_description TEXT
+                );
+
                 CREATE TABLE projects (
                     project_id TEXT PRIMARY KEY,
                     branch TEXT,
@@ -62,13 +69,6 @@ class DatabaseService:
                     investment_amount NUMERIC,
                     depreciation_start_year INT,
                     PRIMARY KEY (project_id, year)
-                );
-
-                CREATE TABLE depreciation_schedules (
-                    depreciation_id SERIAL PRIMARY KEY,
-                    depreciation_percentage NUMERIC,
-                    depreciation_years INT,
-                    method_description TEXT
                 );
 
                 CREATE TABLE calculated_depreciations (
@@ -223,11 +223,19 @@ class DatabaseService:
         Create all necessary tables in the database.
         """
         query_create_tables = """
+            CREATE TABLE IF NOT EXISTS depreciation_schedules (
+                depreciation_id SERIAL PRIMARY KEY,
+                depreciation_percentage NUMERIC,
+                depreciation_years INT,
+                method_description TEXT
+            );
+
             CREATE TABLE IF NOT EXISTS projects (
                 project_id TEXT PRIMARY KEY,
                 branch TEXT,
                 operations TEXT,
-                description TEXT
+                description TEXT,
+                depreciation_method INT REFERENCES depreciation_schedules(depreciation_id)
             );
 
             CREATE TABLE IF NOT EXISTS investments (
@@ -236,13 +244,6 @@ class DatabaseService:
                 investment_amount NUMERIC,
                 depreciation_start_year INT,
                 PRIMARY KEY (project_id, year)
-            );
-
-            CREATE TABLE IF NOT EXISTS depreciation_schedules (
-                depreciation_id SERIAL PRIMARY KEY,
-                depreciation_percentage NUMERIC,
-                depreciation_years INT,
-                method_description TEXT
             );
 
             CREATE TABLE IF NOT EXISTS calculated_depreciations (
