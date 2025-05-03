@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+# Global variable for the last depreciation calculation year
+last_depreciation_year = None
+
 def connect_to_db():
     try:
         db_url = os.getenv("DATABASE_URL")
@@ -91,6 +94,33 @@ def setup_database():
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     text_area.config(yscrollcommand=scrollbar.set)
 
+def define_last_depreciation_year():
+    global last_depreciation_year
+
+    def save_year():
+        nonlocal year_entry
+        try:
+            year = int(year_entry.get())
+            last_depreciation_year = year
+            year_window.destroy()
+            print(f"Last depreciation calculation year set to: {last_depreciation_year}")
+        except ValueError:
+            error_label.config(text="Please enter a valid year.")
+
+    year_window = tk.Toplevel()
+    year_window.title("Define Last Depreciation Year")
+    year_window.geometry("300x150")
+
+    tk.Label(year_window, text="Enter the last depreciation year:", font=("Arial", 12)).pack(pady=10)
+    year_entry = ttk.Entry(year_window, font=("Arial", 12))
+    year_entry.pack(pady=5)
+
+    error_label = tk.Label(year_window, text="", font=("Arial", 10), fg="red")
+    error_label.pack()
+
+    save_button = ttk.Button(year_window, text="Save", command=save_year)
+    save_button.pack(pady=10)
+
 def main_window():
     def open_project():
         open_open_project_window(root)
@@ -125,6 +155,12 @@ def main_window():
     database_menu.add_command(label="Depreciation Setup", command=setup_depreciation_window)
     database_menu.add_command(label="Test Database Setup", command=setup_test_database)  # Modify the label for the test database setup menu item
     menu_bar.add_cascade(label="Setup and Maintenance", menu=database_menu)
+
+    # Add Depreciation Calculation menu
+    depreciation_menu = tk.Menu(menu_bar, tearoff=0)
+    depreciation_menu.add_command(label="Calculate Depreciation", command=setup_depreciation_window)
+    depreciation_menu.add_command(label="Define Last Depreciation Calculation Year", command=define_last_depreciation_year)
+    menu_bar.add_cascade(label="Depreciation Calculation", menu=depreciation_menu)
 
     root.config(menu=menu_bar)
 

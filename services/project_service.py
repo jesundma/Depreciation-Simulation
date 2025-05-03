@@ -1,5 +1,6 @@
 from models.project_model import Project
 from db.database_service import DatabaseService
+import pandas as pd
 
 class ProjectService:
     @staticmethod
@@ -52,15 +53,6 @@ class ProjectService:
         else:
             raise ValueError("Invalid depreciation method configuration.")
 
-    def calculate_depreciations(self, project_id):
-        """
-        Calculate depreciations for a given project using data from Investments and Depreciation Schedules tables.
-        :param project_id: The ID of the project.
-        :return: A dictionary containing calculated depreciations.
-        """
-        # Placeholder for logic to fetch data and calculate depreciations
-        pass
-
     @staticmethod
     def handle_depreciation_calculation(project_id: str):
         """
@@ -78,20 +70,61 @@ class ProjectService:
             raise ValueError("Unknown depreciation method type.")
 
     @staticmethod
+    def get_investment_dataframe(project_id: str) -> pd.DataFrame:
+        """
+        Fetch and preprocess investment data for a project.
+        :param project_id: The ID of the project.
+        :return: A pandas DataFrame containing the investment data.
+        """
+        from db.database_service import DatabaseService
+        from decimal import Decimal
+        db_service = DatabaseService()
+
+        # Fetch investment data for the project using DatabaseService
+        investment_data = db_service.get_investment_data(project_id)
+
+        # Preprocess the data to handle Decimal and None values
+        processed_data = [
+            {
+                "Year": row["year"],
+                "Investment Amount": float(row["investment_amount"]) if isinstance(row["investment_amount"], Decimal) else row["investment_amount"],
+                "Depreciation Start Year": True if row["depreciation_start_year"] is not None else False
+            }
+            for row in investment_data
+        ]
+
+        # Create and return a DataFrame from the processed data
+        return pd.DataFrame(processed_data)
+
+    @staticmethod
     def calculate_depreciation_percentage(project_id: str):
         """
-        Placeholder for percentage-based depreciation calculation.
+        Calculate percentage-based depreciation for a project.
         :param project_id: The ID of the project.
         """
-        print(f"[DEBUG] Placeholder: Calculating percentage-based depreciation for project ID: {project_id}")
+        # Fetch and preprocess the investment data
+        df = ProjectService.get_investment_dataframe(project_id)
+
+        # Debug: Print the DataFrame
+        print("[DEBUG] Investment DataFrame for Percentage Depreciation:")
+        print(df)
+
+        # Placeholder for percentage-based depreciation calculation logic
 
     @staticmethod
     def calculate_depreciation_years(project_id: str):
         """
-        Placeholder for years-based depreciation calculation.
+        Calculate years-based depreciation for a project.
         :param project_id: The ID of the project.
         """
-        print(f"[DEBUG] Placeholder: Calculating years-based depreciation for project ID: {project_id}")
+        # Fetch and preprocess the investment data
+        df = ProjectService.get_investment_dataframe(project_id)
+
+        # Debug: Print the DataFrame
+        print("[DEBUG] Investment DataFrame for Years Depreciation:")
+        print(df)
+
+        # Placeholder for years-based depreciation calculation logic
 
 def fetch_depreciation_methods():
     """

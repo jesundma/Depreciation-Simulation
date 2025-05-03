@@ -127,7 +127,7 @@ def open_open_project_window(root):
     root.attributes('-disabled', True)
     popup = tk.Toplevel(root)
     popup.title("Open Project")
-    popup.geometry("500x400")  # Increased window size to fit all elements
+    popup.geometry("600x500")  # Increased window size to fit all elements
 
     # Adjust padding for better layout
     ttk.Label(popup, text="Project ID:").pack(pady=(10, 5))
