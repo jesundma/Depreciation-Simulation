@@ -115,6 +115,20 @@ def open_open_project_window(root):
             except Exception as e:
                 print(f"Error accessing local database: {e}")
 
+    def fetch_depreciation_methods():
+        """
+        Fetches depreciation method descriptions from the database.
+        """
+        try:
+            from db.database_service import DatabaseService
+            db_service = DatabaseService()
+            query = "SELECT method_description FROM depreciation_schedules"
+            results = db_service.execute_query(query, fetch=True)
+            return [row['method_description'] for row in results]
+        except Exception as e:
+            print(f"Error fetching depreciation methods: {e}")
+            return []
+
     root.attributes('-disabled', True)
     popup = tk.Toplevel(root)
     popup.title("Open Project")
@@ -136,6 +150,14 @@ def open_open_project_window(root):
     ttk.Label(popup, text="Description:").pack(pady=(10, 5))
     text_field = tk.Text(popup, height=5, width=40)
     text_field.pack(pady=(0, 10))
+
+    # Fetch depreciation methods for the dropdown
+    depreciation_methods = fetch_depreciation_methods()
+
+    ttk.Label(popup, text="Depreciation Method:").pack(pady=(10, 5))
+    depreciation_method_var = tk.StringVar()
+    depreciation_method_dropdown = ttk.Combobox(popup, textvariable=depreciation_method_var, values=depreciation_methods, state="readonly")
+    depreciation_method_dropdown.pack(pady=(0, 10))
 
     search_button = ttk.Button(popup, text="Search", command=search_project)
     search_button.pack(pady=(20, 10))
