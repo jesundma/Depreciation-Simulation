@@ -75,6 +75,7 @@ class DatabaseService:
                     project_id TEXT REFERENCES projects(project_id),
                     year INT,
                     depreciation_value NUMERIC,
+                    remaining_value NUMERIC,
                     PRIMARY KEY (project_id, year)
                 );
             """)
@@ -251,24 +252,11 @@ class DatabaseService:
                 project_id TEXT REFERENCES projects(project_id),
                 year INT,
                 depreciation_value NUMERIC,
+                remaining_value NUMERIC,
                 PRIMARY KEY (project_id, year)
             );
         """
         self.execute_query(query_create_tables)
-
-    def create_calculated_depreciations_table(self):
-        """
-        Create the calculated_depreciations table with standard SQL types.
-        """
-        query = """
-            CREATE TABLE IF NOT EXISTS calculated_depreciations (
-                project_id TEXT REFERENCES projects(project_id),
-                year INT,
-                depreciation_value NUMERIC,
-                PRIMARY KEY (project_id, year)
-            );
-        """
-        self.execute_query(query)
 
     def load_project(self, project_id):
         """
@@ -347,7 +335,7 @@ class DatabaseService:
         :param project_id: The ID of the project.
         :return: True if calculated depreciations exist, False otherwise.
         """
-        query = "SELECT EXISTS (SELECT 1 FROM calculated_depreciations WHERE project_id = %s)"
+        query = "SELECT EXISTS (SELECT 1 FROM calculated_depreciations WHERE project_id = %s AND remaining_value IS NOT NULL)"
         params = (project_id,)
         result = self.execute_query(query, params, fetch=True)
         return result[0]['exists'] if result else False
