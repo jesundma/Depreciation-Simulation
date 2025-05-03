@@ -138,24 +138,32 @@ def setup_test_database():
 
     try:
         update_status("Creating 6 entries for Setup Test Database...")
+        depreciation_methods = db_service.fetch_depreciation_methods()
+        if not depreciation_methods:
+            raise ValueError("No depreciation methods found in the database.")
+
         for i in range(1, 7):
             project_id = random_string(6)
             branch = random_string(5)
             operations = random_string(5)
             description = random_string(5)
 
+            # Select a random depreciation method key
+            depreciation_method = random.choice(list(depreciation_methods.keys()))
+
             # Create a Project instance
             project = Project(
                 project_id=project_id,
                 branch=branch,
                 operations=operations,
-                description=description
+                description=description,
+                depreciation_method=depreciation_method
             )
 
             # Save the project to the database
             db_service.save_project(project)
 
-            update_status(f"Entry {i} created successfully with Project ID: {project_id}, Branch: {branch}, Operations: {operations}, Description: {description}.")
+            update_status(f"Entry {i} created successfully with Project ID: {project_id}, Branch: {branch}, Operations: {operations}, Description: {description}, Depreciation Method: {depreciation_method}.")
 
         update_status("Setup Test Database completed successfully!")
 

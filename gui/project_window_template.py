@@ -72,31 +72,39 @@ def display_project_window(project):
     print(f"Investment schedule query executed. Results: {investments}")
     print(f"Query results for project ID {project['project_id']}: {investments}")
 
+    # Fetch the depreciation method description
+    depreciation_methods = db_service.fetch_depreciation_methods()
+    depreciation_description = depreciation_methods.get(project['depreciation_method'], "Unknown")
+
+    # Add depreciation method description to the project details
+    ttk.Label(details_frame, text="Depreciation Method:", font=("Arial", 10, "bold")).grid(row=5, column=0, sticky=tk.W, padx=5, pady=5)
+    ttk.Label(details_frame, text=depreciation_description).grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
+
     if investments:
         print("Displaying investment schedule...")
         # Display investment schedule with years as columns
-        ttk.Label(details_frame, text="Investment Schedule:", font=("Arial", 10, "bold")).grid(row=5, column=0, columnspan=len(investments) + 1, sticky=tk.W, padx=5, pady=5)
+        ttk.Label(details_frame, text="Investment Schedule:", font=("Arial", 10, "bold")).grid(row=6, column=0, columnspan=len(investments) + 1, sticky=tk.W, padx=5, pady=5)
 
         # Add year headers as columns
-        ttk.Label(details_frame, text="Year", font=("Arial", 10, "bold")).grid(row=6, column=0, padx=5, pady=5)
+        ttk.Label(details_frame, text="Year", font=("Arial", 10, "bold")).grid(row=7, column=0, padx=5, pady=5)
         for idx, investment in enumerate(investments):
-            ttk.Label(details_frame, text=f"{investment['year']}", font=("Arial", 10, "bold")).grid(row=6, column=idx + 1, padx=5, pady=5)
+            ttk.Label(details_frame, text=f"{investment['year']}", font=("Arial", 10, "bold")).grid(row=7, column=idx + 1, padx=5, pady=5)
 
         # Fetch depreciation start years from the database
         depreciation_start_years = {investment['year']: investment['depreciation_start_year'] for investment in investments}
 
         # Add investment amounts as a single row with checkboxes
-        ttk.Label(details_frame, text="Investment Amount", font=("Arial", 10, "bold")).grid(row=7, column=0, padx=5, pady=5)
+        ttk.Label(details_frame, text="Investment Amount", font=("Arial", 10, "bold")).grid(row=8, column=0, padx=5, pady=5)
         investment_entries = []
         for idx, investment in enumerate(investments):
             entry = ttk.Entry(details_frame)
             entry.insert(0, str(investment['investment_amount']))
-            entry.grid(row=7, column=idx + 1, padx=5, pady=5)
+            entry.grid(row=8, column=idx + 1, padx=5, pady=5)
 
             # Add a checkbox for each investment and tick it if the year is not null
             var = tk.BooleanVar(value=bool(depreciation_start_years.get(investment['year'])))
             checkbox = ttk.Checkbutton(details_frame, variable=var)
-            checkbox.grid(row=8, column=idx + 1, padx=5, pady=5)
+            checkbox.grid(row=9, column=idx + 1, padx=5, pady=5)
 
             investment_entries.append((investment['year'], entry, var))
 
@@ -113,11 +121,11 @@ def display_project_window(project):
             print("Investments and depreciation start years updated successfully.")
 
         save_changes_button = ttk.Button(details_frame, text="Save Changes", command=save_changes)
-        save_changes_button.grid(row=9, column=0, columnspan=len(investments) + 1, pady=10)
+        save_changes_button.grid(row=10, column=0, columnspan=len(investments) + 1, pady=10)
 
         # Add a Close button next to the Save Changes button
         close_button = ttk.Button(details_frame, text="Close", command=project_window.destroy)
-        close_button.grid(row=10, column=0, columnspan=len(investments) + 1, pady=10, padx=5)
+        close_button.grid(row=11, column=0, columnspan=len(investments) + 1, pady=10, padx=5)
     else:
         print("No investment schedule found.")
         # Clear any previous content in the details_frame
@@ -138,13 +146,19 @@ def display_project_window(project):
             end_year_entry = ttk.Entry(year_window)
             end_year_entry.pack(pady=5)
 
-            # Create an instance of DatabaseService to fetch depreciation methods
+            # Fetch depreciation methods for the dropdown
             database_service = DatabaseService()
             depreciation_methods = database_service.fetch_depreciation_methods()
 
+            # Update dropdown to show descriptions
             ttk.Label(year_window, text="Select Depreciation Method:", font=("Arial", 10, "bold")).pack(pady=10)
             depreciation_method_var = tk.StringVar()
-            depreciation_method_dropdown = ttk.Combobox(year_window, textvariable=depreciation_method_var, values=depreciation_methods, state="readonly")
+            depreciation_method_dropdown = ttk.Combobox(
+                year_window, 
+                textvariable=depreciation_method_var, 
+                values=list(depreciation_methods.values()),  # Show descriptions in the dropdown
+                state="readonly"
+            )
             depreciation_method_dropdown.pack(pady=5)
 
             def open_yearly_fields_window():

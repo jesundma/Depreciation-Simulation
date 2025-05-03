@@ -43,12 +43,16 @@ def open_open_project_window(root):
         scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-        # Display column headers
-        headers = ["", "Project ID", "Branch", "Operations", "Description"]
+        # Fetch depreciation methods for mapping
+        database_service = DatabaseService()
+        depreciation_methods = database_service.fetch_depreciation_methods()
+
+        # Add a new column header for Depreciation Method
+        headers = ["", "Project ID", "Branch", "Operations", "Description", "Depreciation Method"]
         for col, header in enumerate(headers):
             ttk.Label(scrollable_frame, text=header, font=("Arial", 10, "bold")).grid(row=0, column=col, padx=5, pady=5)
 
-        # Display rows of results with tick marks and an open button
+        # Display rows of results with depreciation method descriptions
         if not results:
             ttk.Label(scrollable_frame, text="No results found.", font=("Arial", 10, "italic"), foreground="red").grid(row=1, column=0, columnspan=len(headers) + 2, pady=10)
         else:
@@ -64,6 +68,10 @@ def open_open_project_window(root):
                 ttk.Label(scrollable_frame, text=project['branch']).grid(row=row, column=2, padx=5, pady=5)
                 ttk.Label(scrollable_frame, text=project['operations']).grid(row=row, column=3, padx=5, pady=5)
                 ttk.Label(scrollable_frame, text=project['description']).grid(row=row, column=4, padx=5, pady=5)
+
+                # Map and display the depreciation method description
+                depreciation_description = depreciation_methods.get(project['depreciation_method'], "Unknown")
+                ttk.Label(scrollable_frame, text=depreciation_description).grid(row=row, column=5, padx=5, pady=5)
 
             def open_selected_projects():
                 selected_projects = [project for var, project in checkboxes if var.get()]
@@ -142,9 +150,15 @@ def open_open_project_window(root):
     database_service = DatabaseService()
     depreciation_methods = database_service.fetch_depreciation_methods()
 
+    # Update dropdown to show descriptions
     ttk.Label(popup, text="Depreciation Method:").pack(pady=(10, 5))
     depreciation_method_var = tk.StringVar()
-    depreciation_method_dropdown = ttk.Combobox(popup, textvariable=depreciation_method_var, values=depreciation_methods, state="readonly")
+    depreciation_method_dropdown = ttk.Combobox(
+        popup, 
+        textvariable=depreciation_method_var, 
+        values=list(depreciation_methods.values()),  # Show descriptions in the dropdown
+        state="readonly"
+    )
     depreciation_method_dropdown.pack(pady=(0, 10))
 
     search_button = ttk.Button(popup, text="Search", command=search_project)

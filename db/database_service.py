@@ -104,14 +104,15 @@ class DatabaseService:
         :param project: A Project object containing project details.
         """
         query = """
-            INSERT INTO projects (project_id, branch, operations, description)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO projects (project_id, branch, operations, description, depreciation_method)
+            VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (project_id) DO UPDATE
             SET branch = EXCLUDED.branch,
                 operations = EXCLUDED.operations,
-                description = EXCLUDED.description;
+                description = EXCLUDED.description,
+                depreciation_method = EXCLUDED.depreciation_method;
         """
-        params = (project.project_id, project.branch, project.operations, project.description)
+        params = (project.project_id, project.branch, project.operations, project.description, project.depreciation_method)
         self.execute_query(query, params)
 
     def save_investments(self, project_id, investments):
@@ -328,12 +329,14 @@ class DatabaseService:
 
     def fetch_depreciation_methods(self):
         """
-        Fetches depreciation method descriptions from the database.
+        Fetches depreciation method descriptions along with their IDs from the database.
+        :return: A dictionary where keys are 'depreciation_id' and values are 'method_description'.
         """
         try:
-            query = "SELECT method_description FROM depreciation_schedules"
+            query = "SELECT depreciation_id, method_description FROM depreciation_schedules"
             results = self.execute_query(query, fetch=True)
-            return [row['method_description'] for row in results]
+            # Convert the list of dictionaries to a dictionary with depreciation_id as key and method_description as value
+            return {row['depreciation_id']: row['method_description'] for row in results}
         except Exception as e:
             print(f"Error fetching depreciation methods: {e}")
-            return []
+            return {}

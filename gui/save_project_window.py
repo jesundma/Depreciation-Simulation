@@ -11,9 +11,12 @@ def open_save_project_window(root):
         branch = entry_branch.get()
         operations = entry_operations.get()
         description = text_field.get("1.0", tk.END).strip()
-        depreciation_method = depreciation_method_var.get()
+        selected_description = depreciation_method_var.get()
 
-        if not project_id or not branch or not operations or not description or not depreciation_method:
+        # Map the selected description to its corresponding key
+        depreciation_method_key = next((key for key, desc in depreciation_methods.items() if desc == selected_description), None)
+
+        if not project_id or not branch or not operations or not description or not depreciation_method_key:
             messagebox.showerror("Input Error", "All fields must be filled.")
             return
 
@@ -21,7 +24,8 @@ def open_save_project_window(root):
             project_id=project_id,
             branch=branch,
             operations=operations,
-            description=description
+            description=description,
+            depreciation_method=depreciation_method_key
         )
 
         try:
@@ -61,7 +65,12 @@ def open_save_project_window(root):
 
     ttk.Label(popup, text="Depreciation Method:").pack(pady=(10, 0))
     depreciation_method_var = tk.StringVar()
-    depreciation_method_dropdown = ttk.Combobox(popup, textvariable=depreciation_method_var, values=depreciation_methods, state="readonly")
+    depreciation_method_dropdown = ttk.Combobox(
+        popup, 
+        textvariable=depreciation_method_var, 
+        values=list(depreciation_methods.values()),  # Show descriptions in the dropdown
+        state="readonly"
+    )
     depreciation_method_dropdown.pack()
 
     save_button = ttk.Button(popup, text="Create", command=save_data)
