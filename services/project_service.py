@@ -123,16 +123,29 @@ class ProjectService:
         df["Remaining Asset Value"] = 0.0
         df["Depreciation"] = 0.0
 
+        # Flag to track when depreciation starts
+        depreciation_started = False
+        accumulated_investment = 0.0  # Accumulate investments before depreciation starts
+
         # Calculate Remaining Asset Value and Depreciation iteratively
         for i in range(len(df)):
-            if i == 0:
-                # For the first year, Remaining Asset Value is the Investment Amount
-                df.loc[i, "Remaining Asset Value"] = df.loc[i, "Investment Amount"]
-                # Depreciation is applied directly to the first year's Remaining Asset Value
-                df.loc[i, "Depreciation"] = df.loc[i, "Remaining Asset Value"] * depreciation_factor
-                df.loc[i, "Remaining Asset Value"] -= df.loc[i, "Depreciation"]
+            if not depreciation_started:
+                # Accumulate investments before depreciation starts
+                accumulated_investment += df.loc[i, "Investment Amount"]
+
+                # Check if depreciation should start
+                if df.loc[i, "Depreciation Start Year"]:
+                    depreciation_started = True
+                    # Use the accumulated investment as the initial Remaining Asset Value
+                    df.loc[i, "Remaining Asset Value"] = accumulated_investment
+                    # Depreciation is applied directly to the first year's Remaining Asset Value
+                    df.loc[i, "Depreciation"] = df.loc[i, "Remaining Asset Value"] * depreciation_factor
+                    df.loc[i, "Remaining Asset Value"] -= df.loc[i, "Depreciation"]
+                else:
+                    # If depreciation hasn't started, Remaining Asset Value is the accumulated investment
+                    df.loc[i, "Remaining Asset Value"] = accumulated_investment
             else:
-                # For subsequent years, Remaining Asset Value is reduced by the depreciation factor
+                # For subsequent years after depreciation starts
                 df.loc[i, "Remaining Asset Value"] = df.loc[i - 1, "Remaining Asset Value"] * (1 - depreciation_factor)
                 # Depreciation is the difference between the previous and current Remaining Asset Value
                 df.loc[i, "Depreciation"] = df.loc[i - 1, "Remaining Asset Value"] - df.loc[i, "Remaining Asset Value"]
