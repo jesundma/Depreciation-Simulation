@@ -109,6 +109,45 @@ def display_project_window(project):
 
             investment_entries.append((investment['year'], entry, var))
 
+        # Add a checkbox for yearly recurring investment
+        recurring_investment_var = tk.BooleanVar(value=False)
+        recurring_checkbox = ttk.Checkbutton(
+            details_frame, 
+            text="Yearly Recurring Investment", 
+            variable=recurring_investment_var
+        )
+        recurring_checkbox.grid(row=10, column=0, columnspan=len(investments) + 1, pady=10)
+
+        def update_checkboxes():
+            """
+            Enable or disable checkboxes based on the recurring investment checkbox state.
+            """
+            if recurring_investment_var.get():
+                # If recurring investment is enabled, allow only one checkbox to be selected
+                for year, entry, var in investment_entries:
+                    var.trace_add("write", lambda *args, current_var=var: disable_other_checkboxes(current_var))
+            else:
+                # If recurring investment is disabled, enable all checkboxes
+                for year, entry, var in investment_entries:
+                    var.set(False)  # Reset all checkboxes
+                    entry.config(state="normal")  # Enable all entries
+                    checkbox = entry.master.nametowidget(entry.grid_info()["row"], 2)
+                    checkbox.state(["!disabled"])  # Enable all checkboxes
+
+        def disable_other_checkboxes(selected_var):
+            """
+            Disable all other checkboxes except the selected one.
+            """
+            for year, entry, var in investment_entries:
+                checkbox = entry.master.nametowidget(entry.grid_info()["row"], 2)
+                if var != selected_var:
+                    checkbox.state(["disabled"])  # Disable other checkboxes
+                else:
+                    checkbox.state(["!disabled"])  # Keep the selected checkbox enabled
+
+        # Attach the update_checkboxes function to the recurring investment checkbox
+        recurring_checkbox.config(command=update_checkboxes)
+
         def save_changes():
             updated_investments = {}
             for year, entry, var in investment_entries:
@@ -122,11 +161,11 @@ def display_project_window(project):
             print("Investments and depreciation start years updated successfully.")
 
         save_changes_button = ttk.Button(details_frame, text="Save Changes", command=save_changes)
-        save_changes_button.grid(row=10, column=0, columnspan=len(investments) + 1, pady=10)
+        save_changes_button.grid(row=11, column=0, columnspan=len(investments) + 1, pady=10)
 
         # Add a Close button next to the Save Changes button
         close_button = ttk.Button(details_frame, text="Close", command=project_window.destroy)
-        close_button.grid(row=11, column=0, columnspan=len(investments) + 1, pady=10, padx=5)
+        close_button.grid(row=12, column=0, columnspan=len(investments) + 1, pady=10, padx=5)
 
         # Fetch whether depreciations are calculated for the project
         has_depreciations = db_service.has_calculated_depreciations(project['project_id'])
@@ -140,7 +179,7 @@ def display_project_window(project):
             text=button_text, 
             command=lambda: ProjectService.handle_depreciation_calculation(project['project_id'])
         )
-        calculate_depreciation_button.grid(row=12, column=0, columnspan=2, pady=10)
+        calculate_depreciation_button.grid(row=13, column=0, columnspan=2, pady=10)
     else:
         print("No investment schedule found.")
         # Clear any previous content in the details_frame
@@ -208,6 +247,45 @@ def display_project_window(project):
                         checkbox.grid(row=year - start_year, column=2, padx=5, pady=5)
 
                         year_fields.append((year, entry, var))
+
+                    # Add a checkbox for yearly recurring investment
+                    recurring_investment_var = tk.BooleanVar(value=False)
+                    recurring_checkbox = ttk.Checkbutton(
+                        yearly_frame,
+                        text="Yearly Recurring Investment",
+                        variable=recurring_investment_var
+                    )
+                    recurring_checkbox.grid(row=end_year - start_year + 1, column=0, columnspan=3, pady=10)
+
+                    def update_checkboxes():
+                        """
+                        Enable or disable checkboxes based on the recurring investment checkbox state.
+                        """
+                        if recurring_investment_var.get():
+                            # If recurring investment is enabled, allow only one checkbox to be selected
+                            for year, entry, var in year_fields:
+                                var.trace_add("write", lambda *args, current_var=var: disable_other_checkboxes(current_var))
+                        else:
+                            # If recurring investment is disabled, enable all checkboxes
+                            for year, entry, var in year_fields:
+                                var.set(False)  # Reset all checkboxes
+                                entry.config(state="normal")  # Enable all entries
+                                checkbox = entry.master.nametowidget(entry.grid_info()["row"], 2)
+                                checkbox.state(["!disabled"])  # Enable all checkboxes
+
+                    def disable_other_checkboxes(selected_var):
+                        """
+                        Disable all other checkboxes except the selected one.
+                        """
+                        for year, entry, var in year_fields:
+                            checkbox = entry.master.nametowidget(entry.grid_info()["row"], 2)
+                            if var != selected_var:
+                                checkbox.state(["disabled"])  # Disable other checkboxes
+                            else:
+                                checkbox.state(["!disabled"])  # Keep the selected checkbox enabled
+
+                    # Attach the update_checkboxes function to the recurring investment checkbox
+                    recurring_checkbox.config(command=update_checkboxes)
 
                     def save_investments():
                         investments = {}
