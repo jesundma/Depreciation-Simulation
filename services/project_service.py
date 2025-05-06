@@ -1,6 +1,8 @@
 from models.project_model import Project
 from db.database_service import DatabaseService
 import pandas as pd
+import tkinter as tk
+from tkinter import filedialog
 
 class ProjectService:
     @staticmethod
@@ -370,6 +372,10 @@ class ProjectService:
             depreciation_cols = [col for col in combined_df.columns if col.startswith("Depreciation") and int(col.split()[-1]) <= last_year]
             combined_df = combined_df[['branch', 'operations', 'description'] + investment_cols + depreciation_cols]
 
+        # Ensure all values in columns for years 2025 to 2035 is positive
+        year_columns = [col for col in combined_df.columns if any(str(year) in col for year in range(2025, 2036))]
+        combined_df[year_columns] = combined_df[year_columns].abs()
+
         # Save the DataFrame to an Excel file
         combined_df.to_excel(output_file, sheet_name="Depreciation Report", index=True)
         print(f"[INFO] Report saved to {output_file}")
@@ -379,6 +385,102 @@ class ProjectService:
         print(combined_df)
 
         return combined_df
+
+    @staticmethod
+    def setup_database():
+        """
+        Disable database setup functionality.
+        """
+        print("[INFO] Database setup is disabled.")
+
+    @staticmethod
+    def test_database_setup():
+        """
+        Disable test database setup functionality.
+        """
+        print("[INFO] Test database setup is disabled.")
+
+    @staticmethod
+    def read_project_data_from_excel():
+        """
+        Read and display project data from an Excel file using a GUI to select the file.
+        If successful, create projects in the database from the DataFrame.
+        """
+        try:
+            # Open a file dialog to select the Excel file
+            root = tk.Tk()
+            root.withdraw()  # Hide the root window
+            file_path = filedialog.askopenfilename(
+                title="Select Excel File",
+                filetypes=[("Excel Files", "*.xlsx *.xls")]
+            )
+
+            if not file_path:
+                print("[INFO] No file selected.")
+                return
+
+            # Read the selected Excel file
+            df = pd.read_excel(file_path)
+
+            print("[INFO] Project Data from Excel:")
+            print(df)
+
+            # Call create_projects_from_dataframe to save the data to the database
+            ProjectService.create_projects_from_dataframe(df)
+        except FileNotFoundError:
+            print(f"[ERROR] File not found: {file_path}")
+        except Exception as e:
+            print(f"[ERROR] Failed to read project data from Excel: {e}")
+
+    @staticmethod
+    def create_projects_from_dataframe(df: pd.DataFrame):
+        """
+        Create new projects in the database from a DataFrame.
+        Optionally add investments for the projects.
+        :param df: A pandas DataFrame with columns: project_id, branch, operations, description, depreciation_method.
+        """
+        from tkinter import messagebox
+        from db.database_service import DatabaseService
+        db_service = DatabaseService()
+
+        for _, row in df.iterrows():
+            project = Project(
+                project_id=row['project_id'],
+                branch=row['branch'],
+                operations=row['operations'],
+                description=row['description'],
+                depreciation_method=row['depreciation_method']
+            )
+            db_service.save_project(project)
+
+        print("[INFO] Projects created successfully from DataFrame.")
+
+        # Ask the user if investments should be added
+        root = tk.Tk()
+        root.withdraw()  # Hide the root window
+        add_investments = messagebox.askyesno("Add Investments", "Do you want to add investments for these projects?")
+
+        if add_investments:
+            ProjectService.create_investments_from_dataframe(df)
+
+    @staticmethod
+    def create_investments_from_dataframe(df: pd.DataFrame):
+        """
+        Create investments in the database for projects from a DataFrame.
+        :param df: A pandas DataFrame with columns: project_id and yearly investment data.
+        """
+        from db.database_service import DatabaseService
+        db_service = DatabaseService()
+
+        for _, row in df.iterrows():
+            project_id = row['project_id']
+            # Extract yearly investments, replacing NaN with 0
+            yearly_investments = {year: float(row[year]) if not pd.isna(row[year]) else 0 for year in range(2025, 2036)}
+
+            # Save investments to the database
+            db_service.save_yearly_investments(project_id, yearly_investments)
+
+        print("[INFO] Investments created successfully for projects.")
 
 def fetch_depreciation_methods():
     """
@@ -393,3 +495,4 @@ def fetch_depreciation_methods():
     except Exception as e:
         print(f"Error fetching depreciation methods: {e}")
         return []
+``` 
