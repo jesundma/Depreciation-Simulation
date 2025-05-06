@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Global variable for the last depreciation calculation year
+# Global variable for the last depreciation calculation year, changed in the future
 last_depreciation_year = None
 
 def connect_to_db():
