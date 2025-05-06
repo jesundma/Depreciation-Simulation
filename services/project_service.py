@@ -296,9 +296,11 @@ class ProjectService:
         # Reorder columns to place 'Depreciation' before 'Remaining Asset Value'
         combined_df = combined_df[["Year", "Investment Amount", "Depreciation", "Remaining Asset Value"]]
 
-        # Debug: Print the DataFrame
+        # Debug: Print the DataFrame with data types
         print("[DEBUG] Investment DataFrame for Years Depreciation:")
         print(combined_df)
+        print("[DEBUG] Data Types:")
+        print(combined_df.dtypes)
 
         # Save the calculated depreciation results to the database
         db_service.save_calculated_depreciations(project_id, combined_df)
