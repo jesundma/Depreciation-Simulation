@@ -305,6 +305,81 @@ class ProjectService:
         # Save the calculated depreciation results to the database
         db_service.save_calculated_depreciations(project_id, combined_df)
 
+    @staticmethod
+    def generate_report(transform=False, last_year=None, output_file="depreciation_report.xlsx") -> pd.DataFrame:
+        """
+        Generate a report for all investments and depreciations across all projects.
+        Always save the report to an Excel file.
+        :param transform: Whether to transform the DataFrame so years are columns and project IDs are row labels.
+        :param last_year: The last year to include in the report.
+        :param output_file: Path to save the Excel file (default: "depreciation_report.xlsx").
+        :return: A pandas DataFrame with investments and depreciations shown separately by year.
+        """
+        from db.database_service import DatabaseService
+        db_service = DatabaseService()
+
+        # Fetch data using a method from DatabaseService
+        results = db_service.get_all_depreciation_reports()
+
+        # Preprocess results to convert Decimal values to float
+        processed_results = [
+            {
+                "project_id": row["project_id"],
+                "Year": int(row["year"]),
+                "Investment Amount": float(row["investment_amount"]) if row["investment_amount"] is not None else 0.0,
+                "Depreciation": float(row["depreciation_value"]) if row["depreciation_value"] is not None else 0.0,
+            }
+            for row in results
+        ]
+
+        # Convert processed results to a DataFrame
+        report_df = pd.DataFrame(processed_results)
+
+        # Fetch project data
+        projects_df = pd.DataFrame(db_service.get_projects_data())
+
+        # Debug: Print the fetched projects DataFrame
+        print("[DEBUG] Projects DataFrame:")
+        print(projects_df)
+
+        # Merge project data into the final DataFrame
+        report_df = report_df.merge(
+            projects_df[['project_id', 'branch', 'operations', 'description']],
+            on='project_id',
+            how='left'
+        )
+
+        # Separate investments and depreciation into two DataFrames
+        investments_df = report_df.pivot(index='project_id', columns='Year', values='Investment Amount')
+        depreciation_df = report_df.pivot(index='project_id', columns='Year', values='Depreciation')
+
+        # Rename columns to distinguish between investments and depreciation
+        investments_df.columns = [f"Investment {col}" for col in investments_df.columns]
+        depreciation_df.columns = [f"Depreciation {col}" for col in depreciation_df.columns]
+
+        # Concatenate investments and depreciation DataFrames horizontally
+        combined_df = pd.concat([investments_df, depreciation_df], axis=1)
+
+        # Add project details (branch, operations, description) to the DataFrame
+        project_details = projects_df.set_index('project_id')[['branch', 'operations', 'description']]
+        combined_df = project_details.join(combined_df)
+
+        if last_year is not None:
+            # Filter columns to include only data up to the selected year
+            investment_cols = [col for col in combined_df.columns if col.startswith("Investment") and int(col.split()[-1]) <= last_year]
+            depreciation_cols = [col for col in combined_df.columns if col.startswith("Depreciation") and int(col.split()[-1]) <= last_year]
+            combined_df = combined_df[['branch', 'operations', 'description'] + investment_cols + depreciation_cols]
+
+        # Save the DataFrame to an Excel file
+        combined_df.to_excel(output_file, sheet_name="Depreciation Report", index=True)
+        print(f"[INFO] Report saved to {output_file}")
+
+        # Debug: Print the generated report DataFrame
+        print("[DEBUG] Generated report DataFrame:")
+        print(combined_df)
+
+        return combined_df
+
 def fetch_depreciation_methods():
     """
     Fetches depreciation method descriptions from the database.

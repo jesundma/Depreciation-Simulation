@@ -398,3 +398,82 @@ class DatabaseService:
                 remaining_value
             )
             self.execute_query(query, params)
+
+    def fetch_report_data(self, project_id: str):
+        """
+        Fetch all investments and depreciations for a given project ID.
+        :param project_id: The ID of the project.
+        :return: A list of dictionaries containing year, investment amount, and depreciation value.
+        """
+        query = """
+            SELECT year, 
+                   COALESCE(SUM(investment_amount), 0) AS investment_amount,
+                   COALESCE(SUM(depreciation_value), 0) AS depreciation_value
+            FROM (
+                SELECT year, investment_amount, NULL AS depreciation_value
+                FROM investments
+                WHERE project_id = %s
+                UNION ALL
+                SELECT year, NULL AS investment_amount, depreciation_value
+                FROM calculated_depreciations
+                WHERE project_id = %s
+            ) AS combined
+            GROUP BY year
+            ORDER BY year;
+        """
+        params = (project_id, project_id)
+        return self.execute_query(query, params, fetch=True)
+
+    def get_depreciation_report(self, project_id: str):
+        """
+        Fetch all investments and depreciations for a given project ID.
+        :param project_id: The ID of the project.
+        :return: A list of dictionaries containing year, investment amount, and depreciation value.
+        """
+        query = """
+            SELECT year, 
+                   COALESCE(SUM(investment_amount), 0) AS investment_amount,
+                   COALESCE(SUM(depreciation_value), 0) AS depreciation_value
+            FROM (
+                SELECT year, investment_amount, NULL AS depreciation_value
+                FROM investments
+                WHERE project_id = %s
+                UNION ALL
+                SELECT year, NULL AS investment_amount, depreciation_value
+                FROM calculated_depreciations
+                WHERE project_id = %s
+            ) AS combined
+            GROUP BY year
+            ORDER BY year;
+        """
+        params = (project_id, project_id)
+        return self.execute_query(query, params, fetch=True)
+
+    def get_all_depreciation_reports(self):
+        """
+        Fetch all investments and depreciations across all projects.
+        :return: A list of dictionaries containing project ID, year, investment amount, and depreciation value.
+        """
+        query = """
+            SELECT project_id, year, 
+                   COALESCE(SUM(investment_amount), 0) AS investment_amount,
+                   COALESCE(SUM(depreciation_value), 0) AS depreciation_value
+            FROM (
+                SELECT project_id, year, investment_amount, NULL AS depreciation_value
+                FROM investments
+                UNION ALL
+                SELECT project_id, year, NULL AS investment_amount, depreciation_value
+                FROM calculated_depreciations
+            ) AS combined
+            GROUP BY project_id, year
+            ORDER BY project_id, year;
+        """
+        return self.execute_query(query, fetch=True)
+
+    def get_projects_data(self):
+        """
+        Fetch all data from the projects table.
+        :return: A list of dictionaries containing project details.
+        """
+        query = "SELECT * FROM projects"
+        return self.execute_query(query, fetch=True)

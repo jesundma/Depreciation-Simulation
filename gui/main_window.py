@@ -3,6 +3,7 @@ from tkinter import ttk
 from .save_project_window import open_save_project_window
 from .open_project_window import open_open_project_window
 from .setup_window import setup_database_window, setup_depreciation_window, setup_test_database
+from services.project_service import ProjectService  # Import the ProjectService class
 import os
 import psycopg2
 from dotenv import load_dotenv
@@ -121,6 +122,32 @@ def define_last_depreciation_year():
     save_button = ttk.Button(year_window, text="Save", command=save_year)
     save_button.pack(pady=10)
 
+def open_generate_report_window():
+    def generate_report():
+        try:
+            selected_year = int(year_combobox.get())
+            ProjectService.generate_report(transform=True, last_year=selected_year)
+            report_window.destroy()
+        except ValueError:
+            error_label.config(text="Please select a valid year.")
+
+    report_window = tk.Toplevel()
+    report_window.title("Generate Report")
+    report_window.geometry("300x200")
+
+    tk.Label(report_window, text="Select the last year for the report:", font=("Arial", 12)).pack(pady=10)
+
+    # Update the dropdown for year selection to range from 2025 to 2040
+    year_combobox = ttk.Combobox(report_window, values=list(range(2025, 2041)), font=("Arial", 12))
+    year_combobox.pack(pady=5)
+    year_combobox.set(2025)  # Default to the first year in the range
+
+    error_label = tk.Label(report_window, text="", font=("Arial", 10), fg="red")
+    error_label.pack()
+
+    generate_button = ttk.Button(report_window, text="Generate", command=generate_report)
+    generate_button.pack(pady=10)
+
 def main_window():
     def open_project():
         open_open_project_window(root)
@@ -162,9 +189,17 @@ def main_window():
     depreciation_menu.add_command(label="Define Last Depreciation Calculation Year", command=define_last_depreciation_year)
     menu_bar.add_cascade(label="Depreciation Calculation", menu=depreciation_menu)
 
+    # Add Reporting menu
+    reporting_menu = tk.Menu(menu_bar, tearoff=0)
+    reporting_menu.add_command(
+        label="Generate Report",
+        command=open_generate_report_window
+    )
+    menu_bar.add_cascade(label="Reporting", menu=reporting_menu)
+
     root.config(menu=menu_bar)
 
-    welcome_label = ttk.Label(root, text="Welcome to the Project Manager", font=("Arial", 16))
+    welcome_label = ttk.Label(root, text="Welcome to the Depreciation Manager", font=("Arial", 16))
     welcome_label.pack(pady=50)
 
     root.mainloop()
