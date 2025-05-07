@@ -101,7 +101,7 @@ class ProjectService:
     @staticmethod
     def calculate_depreciation_percentage(project_id: str):
         """
-        Calculate percentage-based depreciation for a project.
+        Calculate percentage-based depreciation for a project up to the year 2040.
         :param project_id: The ID of the project.
         """
         from db.database_service import DatabaseService
@@ -125,6 +125,11 @@ class ProjectService:
         # Convert percentage to a float for calculations
         depreciation_factor = float(depreciation_percentage) / 100
 
+        # Extend the DataFrame to include years up to 2040
+        last_year = df["Year"].max()
+        for year in range(last_year + 1, 2041):
+            df = pd.concat([df, pd.DataFrame({"Year": [year], "Investment Amount": [0.0], "Depreciation Start Year": [False]})], ignore_index=True)
+
         # Initialize columns for Remaining Asset Value and Depreciation
         df["Remaining Asset Value"] = 0.0
         df["Depreciation"] = 0.0
@@ -135,26 +140,27 @@ class ProjectService:
 
         # Calculate Remaining Asset Value and Depreciation iteratively
         for i in range(len(df)):
-            if not depreciation_started:
-                # Accumulate investments before depreciation starts
-                accumulated_investment += df.loc[i, "Investment Amount"]
+            # Accumulate investments
+            accumulated_investment += df.loc[i, "Investment Amount"]
 
-                # Check if depreciation should start
-                if df.loc[i, "Depreciation Start Year"]:
-                    depreciation_started = True
-                    # Use the accumulated investment as the initial Remaining Asset Value
-                    df.loc[i, "Remaining Asset Value"] = accumulated_investment
-                    # Depreciation is applied directly to the first year's Remaining Asset Value
-                    df.loc[i, "Depreciation"] = df.loc[i, "Remaining Asset Value"] * depreciation_factor
-                    df.loc[i, "Remaining Asset Value"] -= df.loc[i, "Depreciation"]
-                else:
-                    # If depreciation hasn't started, Remaining Asset Value is the accumulated investment
-                    df.loc[i, "Remaining Asset Value"] = accumulated_investment
-            else:
-                # For subsequent years after depreciation starts
+            # Check if depreciation should start
+            if not depreciation_started and df.loc[i, "Depreciation Start Year"]:
+                depreciation_started = True
+                df.loc[i, "Remaining Asset Value"] = accumulated_investment
+                df.loc[i, "Depreciation"] = df.loc[i, "Remaining Asset Value"] * depreciation_factor
+                df.loc[i, "Remaining Asset Value"] -= df.loc[i, "Depreciation"]
+            elif depreciation_started:
+                # Carry forward the remaining asset value from the previous year
                 total_value = df.loc[i - 1, "Remaining Asset Value"] + df.loc[i, "Investment Amount"]
                 df.loc[i, "Depreciation"] = total_value * depreciation_factor
                 df.loc[i, "Remaining Asset Value"] = total_value - df.loc[i, "Depreciation"]
+            else:
+                # If depreciation hasn't started, Remaining Asset Value is the accumulated investment
+                df.loc[i, "Remaining Asset Value"] = accumulated_investment
+
+        # If depreciation never started, raise a warning
+        if not depreciation_started:
+            print("[WARNING] Depreciation never started for project. Ensure at least one row has 'Depreciation Start Year' set to True.")
 
         # Reorder columns to place 'Depreciation' before 'Remaining Asset Value'
         df = df[["Year", "Investment Amount", "Depreciation Start Year", "Depreciation", "Remaining Asset Value"]]
@@ -169,7 +175,7 @@ class ProjectService:
     @staticmethod
     def calculate_depreciation_years(project_id: str):
         """
-        Calculate years-based depreciation for a project.
+        Calculate years-based depreciation for a project up to the year 2040.
         :param project_id: The ID of the project.
         """
         from db.database_service import DatabaseService
@@ -190,122 +196,51 @@ class ProjectService:
         depreciation_years = method_details["depreciation_years"]
         print(f"[DEBUG] Depreciation Years for Project {project_id}: {depreciation_years}")
 
-        # Split the DataFrame into individual investments based on 'Depreciation Start Year'
-        investments = []
-        current_investment = []
+        # Extend the DataFrame to include years up to 2040
+        last_year = df["Year"].max()
+        for year in range(last_year + 1, 2041):
+            df = pd.concat([df, pd.DataFrame({"Year": [year], "Investment Amount": [0.0], "Depreciation Start Year": [False]})], ignore_index=True)
+
+        # Ensure all rows are processed for depreciation
+        df["Remaining Asset Value"] = 0.0
+        df["Depreciation"] = 0.0
+
+        # Initialize variables
+        depreciation_started = False
         accumulated_investment = 0.0
 
-        for _, row in df.iterrows():
-            if row["Investment Amount"] > 0:  # Skip zero-value rows
-                accumulated_investment += row["Investment Amount"]
-                current_investment.append(row)
-            if row["Depreciation Start Year"]:
-                if current_investment:  # Only add non-empty investments
-                    # Create a single-row DataFrame with the accumulated investment
-                    investment_df = pd.DataFrame({
-                        "Year": [current_investment[0]["Year"]],
-                        "Investment Amount": [accumulated_investment],
-                        "Depreciation Start Year": [True],
-                        "Depreciation": [0.0],
-                        "Remaining Asset Value": [0.0]
-                    })
-                    investments.append(investment_df)
-                current_investment = []
-                accumulated_investment = 0.0
+        # Iterate through each row to calculate depreciation
+        for i in range(len(df)):
+            # Accumulate investments
+            accumulated_investment += df.loc[i, "Investment Amount"]
 
-        # Add remaining rows as the last investment if any
-        if current_investment:
-            investment_df = pd.DataFrame({
-                "Year": [current_investment[0]["Year"]],
-                "Investment Amount": [accumulated_investment],
-                "Depreciation Start Year": [False],
-                "Depreciation": [0.0],
-                "Remaining Asset Value": [0.0]
-            })
-            investments.append(investment_df)
+            # Check if depreciation should start
+            if not depreciation_started and df.loc[i, "Depreciation Start Year"]:
+                depreciation_started = True
+                df.loc[i, "Remaining Asset Value"] = accumulated_investment
+                yearly_depreciation = df.loc[i, "Remaining Asset Value"] / depreciation_years
+                df.loc[i, "Depreciation"] = yearly_depreciation
+                df.loc[i, "Remaining Asset Value"] -= yearly_depreciation
+            elif depreciation_started:
+                # Carry forward the remaining asset value from the previous year
+                df.loc[i, "Remaining Asset Value"] = df.loc[i - 1, "Remaining Asset Value"]
+                yearly_depreciation = df.loc[i, "Remaining Asset Value"] / depreciation_years
+                df.loc[i, "Depreciation"] = yearly_depreciation
+                df.loc[i, "Remaining Asset Value"] -= yearly_depreciation
 
-        # Debug: Print each investment DataFrame
-        for i, investment_df in enumerate(investments):
-            print(f"[DEBUG] Investment DataFrame {i + 1}:")
-            print(investment_df)
-
-        # Calculate depreciation for each individual DataFrame
-        for investment_df in investments:
-            if not investment_df.empty:
-                # Calculate depreciation amount by dividing investment by number of years
-                depreciation_amount = investment_df["Investment Amount"].iloc[0] / depreciation_years
-                investment_df["Depreciation"] = depreciation_amount
-
-        # Add depreciation to new rows for the remaining years
-        updated_investments = []
-        for investment_df in investments:
-            if not investment_df.empty:
-                # Extract the base year and depreciation amount
-                base_year = investment_df["Year"].iloc[0]
-                depreciation_amount = investment_df["Depreciation"].iloc[0]
-
-                # Create rows for the remaining years
-                for i in range(1, depreciation_years):
-                    new_row = {
-                        "Year": base_year + i,
-                        "Investment Amount": 0.0,
-                        "Depreciation Start Year": False,
-                        "Depreciation": depreciation_amount,
-                        "Remaining Asset Value": 0.0
-                    }
-                    investment_df = pd.concat([investment_df, pd.DataFrame([new_row])], ignore_index=True)
-
-                updated_investments.append(investment_df)
-
-        # Debug: Print each updated investment DataFrame
-        for i, investment_df in enumerate(updated_investments):
-            print(f"[DEBUG] Updated Investment DataFrame {i + 1} with Depreciation Rows:")
-            print(investment_df)
-
-        # Calculate remaining asset value for each DataFrame
-        for investment_df in updated_investments:
-            if not investment_df.empty:
-                # Calculate remaining asset value for the first row
-                investment_df.loc[0, "Remaining Asset Value"] = investment_df.loc[0, "Investment Amount"] - investment_df.loc[0, "Depreciation"]
-
-                # Calculate remaining asset value for subsequent rows
-                for i in range(1, len(investment_df)):
-                    investment_df.loc[i, "Remaining Asset Value"] = investment_df.loc[i - 1, "Remaining Asset Value"] - investment_df.loc[i, "Depreciation"]
-
-        # Debug: Print each updated investment DataFrame with remaining asset value
-        for i, investment_df in enumerate(updated_investments):
-            print(f"[DEBUG] Updated Investment DataFrame {i + 1} with Remaining Asset Value:")
-            print(investment_df)
-
-        # Combine all individual DataFrames into a single DataFrame
-        combined_df = pd.concat(updated_investments, ignore_index=True)
-
-        # Group by year and sum investments, depreciation, and remaining asset value
-        combined_df = combined_df.groupby("Year", as_index=False).agg({
-            "Investment Amount": "sum",
-            "Depreciation": "sum",
-            "Remaining Asset Value": "sum"
-        })
-
-        # Ensure all values in the DataFrame are converted to standard Python types
-        combined_df = combined_df.astype({
-            "Year": int,  # Convert Year to integer
-            "Depreciation": float,  # Convert Depreciation to float
-            "Remaining Asset Value": float,  # Convert Remaining Asset Value to float
-            "Investment Amount": float  # Convert Investment Amount to float
-        })
+        # If depreciation never started, raise a warning
+        if not depreciation_started:
+            print("[WARNING] Depreciation never started for project. Ensure at least one row has 'Depreciation Start Year' set to True.")
 
         # Reorder columns to place 'Depreciation' before 'Remaining Asset Value'
-        combined_df = combined_df[["Year", "Investment Amount", "Depreciation", "Remaining Asset Value"]]
+        df = df[["Year", "Investment Amount", "Depreciation Start Year", "Depreciation", "Remaining Asset Value"]]
 
-        # Debug: Print the DataFrame with data types
+        # Debug: Print the DataFrame
         print("[DEBUG] Investment DataFrame for Years Depreciation:")
-        print(combined_df)
-        print("[DEBUG] Data Types:")
-        print(combined_df.dtypes)
+        print(df)
 
         # Save the calculated depreciation results to the database
-        db_service.save_calculated_depreciations(project_id, combined_df)
+        db_service.save_calculated_depreciations(project_id, df)
 
     @staticmethod
     def generate_report(transform=False, last_year=None, output_file="depreciation_report.xlsx") -> pd.DataFrame:
