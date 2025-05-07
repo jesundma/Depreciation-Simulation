@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from .save_project_window import open_save_project_window
 from .open_project_window import open_open_project_window
-from .setup_window import setup_database_window, setup_depreciation_window, setup_test_database
+from .setup_window import setup_database_window, setup_depreciation_window
 from services.project_service import ProjectService  # Import the ProjectService class
 import os
 import psycopg2
@@ -181,7 +181,6 @@ def main_window():
     database_menu = tk.Menu(menu_bar, tearoff=0)
     database_menu.add_command(label="Database Setup", command=setup_database_window)
     database_menu.add_command(label="Depreciation Setup", command=setup_depreciation_window)
-    database_menu.add_command(label="Test Database Setup", command=setup_test_database)  # Modify the label for the test database setup menu item
     menu_bar.add_cascade(label="Setup and Maintenance", menu=database_menu)
 
     # Add Depreciation Calculation menu

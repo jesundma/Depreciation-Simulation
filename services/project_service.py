@@ -403,13 +403,10 @@ class ProjectService:
     @staticmethod
     def read_project_data_from_excel():
         """
-        Read and display project data from an Excel file using a GUI to select the file.
-        If successful, create projects in the database from the DataFrame.
+        Read all project and investment data from an Excel file.
         """
         try:
             # Open a file dialog to select the Excel file
-            root = tk.Tk()
-            root.withdraw()  # Hide the root window
             file_path = filedialog.askopenfilename(
                 title="Select Excel File",
                 filetypes=[("Excel Files", "*.xlsx *.xls")]
@@ -422,24 +419,24 @@ class ProjectService:
             # Read the selected Excel file
             df = pd.read_excel(file_path)
 
-            print("[INFO] Project Data from Excel:")
+            print("[INFO] Data from Excel:")
             print(df)
 
-            # Call create_projects_from_dataframe to save the data to the database
+            # Process all data from the Excel file
             ProjectService.create_projects_from_dataframe(df)
+            ProjectService.create_investments_from_dataframe(df)
+
         except FileNotFoundError:
             print(f"[ERROR] File not found: {file_path}")
         except Exception as e:
-            print(f"[ERROR] Failed to read project data from Excel: {e}")
+            print(f"[ERROR] Failed to read data from Excel: {e}")
 
     @staticmethod
     def create_projects_from_dataframe(df: pd.DataFrame):
         """
         Create new projects in the database from a DataFrame.
-        Optionally add investments for the projects.
         :param df: A pandas DataFrame with columns: project_id, branch, operations, description, depreciation_method.
         """
-        from tkinter import messagebox
         from db.database_service import DatabaseService
         db_service = DatabaseService()
 
@@ -455,32 +452,41 @@ class ProjectService:
 
         print("[INFO] Projects created successfully from DataFrame.")
 
-        # Ask the user if investments should be added
-        root = tk.Tk()
-        root.withdraw()  # Hide the root window
-        add_investments = messagebox.askyesno("Add Investments", "Do you want to add investments for these projects?")
-
-        if add_investments:
-            ProjectService.create_investments_from_dataframe(df)
-
     @staticmethod
-    def create_investments_from_dataframe(df: pd.DataFrame):
+    def create_investments_from_dataframe(df: pd.DataFrame, chunk_size=100):
         """
-        Create investments in the database for projects from a DataFrame.
+        Create investments in the database for projects from a DataFrame in chunks.
         :param df: A pandas DataFrame with columns: project_id and yearly investment data.
+        :param chunk_size: Number of rows to process in each chunk.
         """
         from db.database_service import DatabaseService
         db_service = DatabaseService()
 
+        # Prepare investment data for batch processing
+        investment_data = []
         for _, row in df.iterrows():
             project_id = row['project_id']
-            # Extract yearly investments, replacing NaN with 0
             yearly_investments = {year: float(row[year]) if not pd.isna(row[year]) else 0 for year in range(2025, 2036)}
+            for year, amount in yearly_investments.items():
+                investment_data.append((project_id, year, amount))
 
-            # Save investments to the database
-            db_service.save_yearly_investments(project_id, yearly_investments)
+        # Group by project_id and year to handle duplicates
+        grouped_data = {}
+        for project_id, year, amount in investment_data:
+            if (project_id, year) in grouped_data:
+                grouped_data[(project_id, year)] += amount
+            else:
+                grouped_data[(project_id, year)] = amount
 
-        print("[INFO] Investments created successfully for projects.")
+        # Convert grouped data back to a list of tuples
+        deduplicated_data = [(project_id, year, amount) for (project_id, year), amount in grouped_data.items()]
+
+        # Process data in chunks
+        for i in range(0, len(deduplicated_data), chunk_size):
+            chunk = deduplicated_data[i:i + chunk_size]
+            db_service.save_investments_batch(chunk)
+
+        print("[INFO] Investments created successfully for projects in chunks.")
 
 def fetch_depreciation_methods():
     """
@@ -495,4 +501,3 @@ def fetch_depreciation_methods():
     except Exception as e:
         print(f"Error fetching depreciation methods: {e}")
         return []
-``` 

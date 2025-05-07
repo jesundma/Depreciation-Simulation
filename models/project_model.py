@@ -10,6 +10,12 @@ class Project:
     depreciation_method: int  # Foreign key referencing depreciation_schedules(depreciation_id)
 
 @dataclass
+class ProjectClassification:
+    project_id: str  # Foreign key to bind with Project
+    importance: int  # Importance level of the project (e.g., 1 for High, 2 for Medium, 3 for Low)
+    type: int  # Type of the project (e.g., 1 for Infrastructure, 2 for IT, etc.)
+
+@dataclass
 class Investment:
     project_id: str  # Foreign key to bind with Project
     yearly_investments: Dict[int, float] = field(default_factory=dict)

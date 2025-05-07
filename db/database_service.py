@@ -23,6 +23,7 @@ class DatabaseService:
         print(f"Executing query: {query}")
         print(f"With parameters: {params}")
         try:
+            # Create a new connection for each query
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cur:
                     cur.execute(query, params)
@@ -31,8 +32,11 @@ class DatabaseService:
                         print(f"Query results: {results}")
                         return results
                     conn.commit()
+        except psycopg2.InterfaceError as e:
+            print(f"[ERROR] Database connection issue: {e}")
+            raise
         except Exception as e:
-            print(f"Database query failed: {e}")
+            print(f"[ERROR] Database query failed: {e}")
             raise
 
     def setup_database(self):
@@ -61,6 +65,12 @@ class DatabaseService:
                     operations TEXT,
                     description TEXT,
                     depreciation_method INT REFERENCES depreciation_schedules(depreciation_id)
+                );
+
+                CREATE TABLE project_classifications (
+                    project_id TEXT PRIMARY KEY REFERENCES projects(project_id),
+                    importance INT,
+                    type INT
                 );
 
                 CREATE TABLE investments (
@@ -267,6 +277,12 @@ class DatabaseService:
                 operations TEXT,
                 description TEXT,
                 depreciation_method INT REFERENCES depreciation_schedules(depreciation_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS project_classifications (
+                project_id TEXT PRIMARY KEY REFERENCES projects(project_id),
+                importance INT,
+                type INT
             );
 
             CREATE TABLE IF NOT EXISTS investments (
@@ -493,3 +509,25 @@ class DatabaseService:
         """
         query = "SELECT * FROM projects"
         return self.execute_query(query, fetch=True)
+
+    def save_investments_batch(self, investments):
+        """
+        Save multiple investments in the database in a single batch.
+        :param investments: A list of tuples (project_id, year, investment_amount).
+        """
+        query = """
+            INSERT INTO investments (project_id, year, investment_amount)
+            VALUES %s
+            ON CONFLICT (project_id, year) DO UPDATE
+            SET investment_amount = EXCLUDED.investment_amount;
+        """
+        try:
+            # Use psycopg2's execute_values for efficient batch inserts
+            from psycopg2.extras import execute_values
+            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                with conn.cursor() as cur:
+                    execute_values(cur, query, investments)
+                    conn.commit()
+        except Exception as e:
+            print(f"[ERROR] Failed to save investments batch: {e}")
+            raise
