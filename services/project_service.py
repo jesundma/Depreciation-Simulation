@@ -130,33 +130,26 @@ class ProjectService:
         for year in range(last_year + 1, 2041):
             df = pd.concat([df, pd.DataFrame({"Year": [year], "Investment Amount": [0.0], "Depreciation Start Year": [False]})], ignore_index=True)
 
-        # Initialize columns for Remaining Asset Value and Depreciation
-        df["Remaining Asset Value"] = 0.0
-        df["Depreciation"] = 0.0
-
-        # Flag to track when depreciation starts
+        # Initialize variables
         depreciation_started = False
-        accumulated_investment = 0.0  # Accumulate investments before depreciation starts
+        remaining_asset_value = 0.0
 
-        # Calculate Remaining Asset Value and Depreciation iteratively
+        # Iterate through each row to calculate depreciation
         for i in range(len(df)):
-            # Accumulate investments
-            accumulated_investment += df.loc[i, "Investment Amount"]
+            # Add new investments to the remaining asset value
+            remaining_asset_value += df.loc[i, "Investment Amount"]
 
             # Check if depreciation should start
             if not depreciation_started and df.loc[i, "Depreciation Start Year"]:
                 depreciation_started = True
-                df.loc[i, "Remaining Asset Value"] = accumulated_investment
-                df.loc[i, "Depreciation"] = df.loc[i, "Remaining Asset Value"] * depreciation_factor
-                df.loc[i, "Remaining Asset Value"] -= df.loc[i, "Depreciation"]
-            elif depreciation_started:
-                # Carry forward the remaining asset value from the previous year
-                total_value = df.loc[i - 1, "Remaining Asset Value"] + df.loc[i, "Investment Amount"]
-                df.loc[i, "Depreciation"] = total_value * depreciation_factor
-                df.loc[i, "Remaining Asset Value"] = total_value - df.loc[i, "Depreciation"]
-            else:
-                # If depreciation hasn't started, Remaining Asset Value is the accumulated investment
-                df.loc[i, "Remaining Asset Value"] = accumulated_investment
+
+            if depreciation_started:
+                # Calculate depreciation for the year
+                df.loc[i, "Depreciation"] = remaining_asset_value * depreciation_factor
+                remaining_asset_value -= df.loc[i, "Depreciation"]
+
+            # Update the remaining asset value for the current year
+            df.loc[i, "Remaining Asset Value"] = remaining_asset_value
 
         # If depreciation never started, raise a warning
         if not depreciation_started:
@@ -320,20 +313,6 @@ class ProjectService:
         print(combined_df)
 
         return combined_df
-
-    @staticmethod
-    def setup_database():
-        """
-        Disable database setup functionality.
-        """
-        print("[INFO] Database setup is disabled.")
-
-    @staticmethod
-    def test_database_setup():
-        """
-        Disable test database setup functionality.
-        """
-        print("[INFO] Test database setup is disabled.")
 
     @staticmethod
     def read_project_data_from_excel():
