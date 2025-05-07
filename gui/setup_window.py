@@ -7,9 +7,7 @@ import random
 import string
 
 def setup_database_window():
-    """
-    Sets up the database by clearing all tables and creating new ones.
-    """
+    
     status_window = tk.Toplevel()
     status_window.title("Database Setup Status")
     status_window.geometry("400x300")
@@ -28,9 +26,6 @@ def setup_database_window():
 
     try:
         db_service = DatabaseService()
-
-        update_status("Clearing all tables...")
-        db_service.clear_all_tables()
 
         update_status("Creating new tables...")
         db_service.create_tables()
