@@ -41,25 +41,22 @@ class DatabaseService:
 
     def setup_database(self):
         """
-        Set up the database by clearing all tables and creating new ones.
+        Set up the database by creating new tables only if they do not already exist.
         """
         try:
-            # Reuse the clear_all_tables method to avoid redundancy
-            self.clear_all_tables()
-
             conn = psycopg2.connect(self.db_url)
             cur = conn.cursor()
 
-            # Create new tables
+            # Create tables only if they do not already exist
             cur.execute("""
-                CREATE TABLE depreciation_schedules (
+                CREATE TABLE IF NOT EXISTS depreciation_schedules (
                     depreciation_id SERIAL PRIMARY KEY,
                     depreciation_percentage NUMERIC,
                     depreciation_years INT,
                     method_description TEXT
                 );
 
-                CREATE TABLE projects (
+                CREATE TABLE IF NOT EXISTS projects (
                     project_id TEXT PRIMARY KEY,
                     branch TEXT,
                     operations TEXT,
@@ -67,13 +64,13 @@ class DatabaseService:
                     depreciation_method INT REFERENCES depreciation_schedules(depreciation_id)
                 );
 
-                CREATE TABLE project_classifications (
+                CREATE TABLE IF NOT EXISTS project_classifications (
                     project_id TEXT PRIMARY KEY REFERENCES projects(project_id),
                     importance INT,
                     type INT
                 );
 
-                CREATE TABLE investments (
+                CREATE TABLE IF NOT EXISTS investments (
                     project_id TEXT REFERENCES projects(project_id),
                     year INT,
                     investment_amount NUMERIC,
@@ -81,7 +78,7 @@ class DatabaseService:
                     PRIMARY KEY (project_id, year)
                 );
 
-                CREATE TABLE calculated_depreciations (
+                CREATE TABLE IF NOT EXISTS calculated_depreciations (
                     project_id TEXT REFERENCES projects(project_id),
                     year INT,
                     depreciation_value NUMERIC,
@@ -239,25 +236,6 @@ class DatabaseService:
             """
             insert_params = (depreciation_percentage, depreciation_years, method_description)
             self.execute_query(insert_query, insert_params)
-
-    def clear_all_tables(self):
-        """
-        Clear all tables in the database.
-        """
-        query_clear_tables = """
-            DO $$
-            DECLARE
-                table_name text;
-            BEGIN
-                FOR table_name IN
-                    SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-                LOOP
-                    EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', table_name);
-                END LOOP;
-            END;
-            $$;
-        """
-        self.execute_query(query_clear_tables)
 
     def create_tables(self):
         """
