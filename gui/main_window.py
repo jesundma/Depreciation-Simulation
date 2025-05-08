@@ -177,6 +177,7 @@ def main_window():
     investment_menu.add_command(label="Read Projects from Excel", command=ProjectService.read_projects_from_excel)
     investment_menu.add_command(label="Read Project Classifications from Excel", command=ProjectService.read_project_classifications_from_excel)
     investment_menu.add_command(label="Read Investments from Excel", command=ProjectService.read_investments_from_excel)
+    investment_menu.add_command(label="Read Depreciation Years from Excel", command=ProjectService.read_depreciation_years_from_excel)
     menu_bar.add_cascade(label="Investment Projects", menu=investment_menu)
 
     # Add Setup and Maintenance menu

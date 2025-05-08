@@ -201,6 +201,36 @@ class DatabaseService:
             params = (start_year, project_id, year)
             self.execute_query(query, params)
 
+    def save_depreciation_year(self, project_id, year, depreciation_year):
+        """
+        Save a single depreciation year to the investments table.
+        :param project_id: The ID of the project.
+        :param year: The year of the investment.
+        :param depreciation_year: The depreciation year to save.
+        """
+        query = """
+            UPDATE investments
+            SET depreciation_start_year = %s
+            WHERE project_id = %s AND year = %s;
+        """
+        params = (depreciation_year, project_id, year)
+        self.execute_query(query, params)
+
+    def save_depreciation_start_year(self, project_id, year, depreciation_year):
+        """
+        Save or update the depreciation start year for a specific project and year in the investments table.
+        :param project_id: The ID of the project.
+        :param year: The year of the investment.
+        :param depreciation_year: The depreciation start year to save.
+        """
+        query = """
+            UPDATE investments
+            SET depreciation_start_year = %s
+            WHERE project_id = %s AND year = %s;
+        """
+        params = (depreciation_year, project_id, year)
+        self.execute_query(query, params)
+
     def save_depreciation_schedule(self, depreciation_percentage, depreciation_years, method_description):
         """
         Save or update a general depreciation schedule in the database.
@@ -504,7 +534,8 @@ class DatabaseService:
                 type = EXCLUDED.type;
         """
         for project_id, importance, classification_type in classifications:
-            # Skip entries where importance or type is not an integer
+            
+            # Skip entries where importance or type is still not an integer
             if not isinstance(importance, int) or not isinstance(classification_type, int):
                 print(f"[WARNING] Skipping classification for project {project_id}: Importance={importance}, Type={classification_type} (Invalid data)")
                 continue
@@ -527,12 +558,18 @@ class DatabaseService:
                 depreciation_method = EXCLUDED.depreciation_method;
         """
         try:
+            # Log the number of projects being saved
+            print(f"[INFO] Attempting to save {len(projects)} projects in batch.")
+
             # Use psycopg2's execute_values for efficient batch inserts
             from psycopg2.extras import execute_values
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cur:
                     execute_values(cur, query, projects)
                     conn.commit()
+
+            # Log success
+            print(f"[INFO] Successfully saved {len(projects)} projects in batch.")
         except Exception as e:
             print(f"[ERROR] Failed to save projects batch: {e}")
             raise

@@ -110,6 +110,14 @@ class ProjectService:
         # Fetch and preprocess the investment data
         df = ProjectService.get_investment_dataframe(project_id)
 
+        # Debugging: Print the header of the DataFrame
+        print("[DEBUG] DataFrame header:")
+        print(df.head())
+
+        if 'year' not in df.columns:
+            print("[ERROR] 'year' column is missing from the DataFrame.")
+            return
+
         # Ensure the required columns are initialized
         df["Depreciation"] = 0.0
         df["Remaining Asset Value"] = 0.0
@@ -176,6 +184,14 @@ class ProjectService:
 
         # Fetch and preprocess the investment data
         df = ProjectService.get_investment_dataframe(project_id)
+
+        # Debugging: Print the header of the DataFrame
+        print("[DEBUG] DataFrame header:")
+        print(df.head())
+
+        if 'year' not in df.columns:
+            print("[ERROR] 'year' column is missing from the DataFrame.")
+            return
 
         # Ensure the required columns are initialized
         df["Depreciation"] = 0.0
@@ -358,6 +374,10 @@ class ProjectService:
 
             df = pd.read_excel(file_path)
 
+            # Convert importance and type to integers while reading
+            df["importance"] = df["importance"].fillna(0).astype(int)
+            df["type"] = df["type"].fillna(0).astype(int)
+
             if "importance" in df.columns and "type" in df.columns:
                 classifications = df[["project_id", "importance", "type"]].dropna()
                 ProjectService.create_project_classifications_from_dataframe(classifications)
@@ -384,11 +404,14 @@ class ProjectService:
                 print("[INFO] No file selected.")
                 return
 
-            df = pd.read_excel(file_path)
+            # Use the new create_dataframe_from_excel method to process the Excel file
+            df = ProjectService.create_dataframe_from_excel(file_path)
 
-            print("[INFO] Investment data from Excel:")
-            print(df)
+            # Debugging: Print the header of the DataFrame
+            print("[DEBUG] DataFrame header:")
+            print(df.head())
 
+            # Pass the processed DataFrame to create investments
             ProjectService.create_investments_from_dataframe(df)
 
         except FileNotFoundError:
@@ -399,7 +422,7 @@ class ProjectService:
     @staticmethod
     def read_depreciation_years_from_excel():
         """
-        Read and save depreciation years from an Excel file to the database.
+        Read and save depreciation years from an Excel file to the investments table.
         """
         try:
             file_path = filedialog.askopenfilename(
@@ -416,8 +439,8 @@ class ProjectService:
             print("[INFO] Depreciation years data from Excel:")
             print(df)
 
-            # Process and save the data to the database
-            ProjectService.create_depreciation_years_from_dataframe(df)
+            # Process and save the data to the investments table
+            ProjectService.update_investments_with_depreciation_years(df)
 
         except FileNotFoundError:
             print(f"[ERROR] File not found: {file_path}")
@@ -425,25 +448,66 @@ class ProjectService:
             print(f"[ERROR] Failed to read depreciation years from Excel: {e}")
 
     @staticmethod
-    def create_depreciation_years_from_dataframe(df: pd.DataFrame):
+    def update_investments_with_depreciation_years(df: pd.DataFrame):
         """
-        Create depreciation years in the database from a DataFrame.
-        :param df: A pandas DataFrame with columns: depreciation_id, depreciation_years.
+        Update the investments table with depreciation start years from a DataFrame.
+        :param df: A pandas DataFrame with columns: project_id, year, depreciation_start_year.
         """
         from db.database_service import DatabaseService
         db_service = DatabaseService()
 
         for _, row in df.iterrows():
             try:
-                db_service.save_depreciation_schedule(
-                    depreciation_percentage=None,  # Assuming only years are provided
-                    depreciation_years=row['depreciation_years'],
-                    method_description=row.get('method_description', "")
-                )
+                project_id = row['project_id']
+                year = int(row['year'])
+                depreciation_start_years = row['depreciation_start_year']
+
+                # Ensure depreciation_start_years is a list
+                if not isinstance(depreciation_start_years, list):
+                    depreciation_start_years = [depreciation_start_years]
+
+                for depreciation_start_year in depreciation_start_years:
+                    # Update the investments table for each year in the list
+                    db_service.update_investment_depreciation_start_year(
+                        project_id=project_id,
+                        year=year,
+                        depreciation_start_year=depreciation_start_year
+                    )
             except Exception as e:
                 print(f"[WARNING] Skipping row due to error: {e}")
 
-        print("[INFO] Depreciation years saved successfully from DataFrame.")
+        print("[INFO] Depreciation start years updated successfully in the investments table.")
+
+    @staticmethod
+    def create_depreciation_years_from_dataframe(df: pd.DataFrame):
+        """
+        Create depreciation years in the database from a DataFrame.
+        :param df: A pandas DataFrame with columns: project_id, year, depreciation_years.
+        """
+        from db.database_service import DatabaseService
+        db_service = DatabaseService()
+
+        for _, row in df.iterrows():
+            try:
+                project_id = row['project_id']
+                year = int(row['year'])
+                depreciation_years = row['depreciation_years']
+
+                # Ensure depreciation_years is a list
+                if not isinstance(depreciation_years, list):
+                    depreciation_years = [depreciation_years]
+
+                for depreciation_year in depreciation_years:
+                    # Update the investments table for each year in the list
+                    db_service.save_depreciation_start_year(
+                        project_id=project_id,
+                        year=year,
+                        depreciation_year=depreciation_year
+                    )
+            except Exception as e:
+                print(f"[WARNING] Skipping row due to error: {e}")
+
+        print("[INFO] Depreciation years updated successfully in the investments table.")
 
     @staticmethod
     def create_projects_from_dataframe(df: pd.DataFrame):
@@ -478,11 +542,28 @@ class ProjectService:
         from db.database_service import DatabaseService
         db_service = DatabaseService()
 
+        # Strip column names to remove extra spaces
+        df.columns = df.columns.str.strip()
+
+        # Debugging: Print column names
+        print("[DEBUG] DataFrame columns:", df.columns)
+
+        # Convert year columns to numeric
+        year_columns = [col for col in df.columns if col.isdigit()]
+        for col in year_columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+        # Debugging: Print a sample of the year columns
+        print("[DEBUG] Sample year columns:")
+        print(df[year_columns].head())
+
         # Prepare investment data for batch processing
         investment_data = []
         for _, row in df.iterrows():
             project_id = row['project_id']
-            yearly_investments = {year: float(row[year]) if not pd.isna(row[year]) else 0 for year in range(2025, 2036)}
+            yearly_investments = {
+                int(year): float(row.get(year, 0)) for year in year_columns
+            }
             for year, amount in yearly_investments.items():
                 investment_data.append((project_id, year, amount))
 
@@ -497,12 +578,13 @@ class ProjectService:
         # Convert grouped data back to a list of tuples
         deduplicated_data = [(project_id, year, amount) for (project_id, year), amount in grouped_data.items()]
 
-        # Process data in chunks
-        for i in range(0, len(deduplicated_data), chunk_size):
-            chunk = deduplicated_data[i:i + chunk_size]
+        # Ensure all chunks are processed
+        total_chunks = (len(deduplicated_data) + chunk_size - 1) // chunk_size
+        for i in range(total_chunks):
+            chunk = deduplicated_data[i * chunk_size:(i + 1) * chunk_size]
             db_service.save_investments_batch(chunk)
 
-        print("[INFO] Investments created successfully for projects in chunks.")
+        print(f"[INFO] Investments created successfully for {len(deduplicated_data)} rows in chunks of {chunk_size}.")
 
     @staticmethod
     def create_project_classifications_from_dataframe(df: pd.DataFrame):
@@ -527,6 +609,24 @@ class ProjectService:
         db_service.save_project_classifications(classifications)
         print("[INFO] Project classifications saved successfully.")
 
+    @staticmethod
+    def create_dataframe_from_excel(file_path: str) -> pd.DataFrame:
+        """
+        Create a pandas DataFrame from an Excel file with specific transformations.
+        :param file_path: Path to the Excel file.
+        :return: A pandas DataFrame with processed data.
+        """
+        # Read the Excel file into a DataFrame, specifying the header row
+        df = pd.read_excel(file_path, header=0)  # Adjust header row if needed
+
+        # Strip column names to remove extra spaces
+        df.columns = df.columns.map(lambda x: str(x).strip() if not pd.isna(x) else x)
+
+        # Debugging: Print the cleaned column names
+        print("[DEBUG] Cleaned DataFrame columns:", df.columns)
+
+        return df
+
 def fetch_depreciation_methods():
     """
     Fetches depreciation method descriptions from the database.
@@ -540,3 +640,4 @@ def fetch_depreciation_methods():
     except Exception as e:
         print(f"Error fetching depreciation methods: {e}")
         return []
+
