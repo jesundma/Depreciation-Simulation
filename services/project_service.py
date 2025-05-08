@@ -25,11 +25,6 @@ class ProjectService:
         return None
 
     @staticmethod
-    def calculate_depreciation(project: Project):
-        # Apply some depreciation logic
-        pass
-
-    @staticmethod
     def search_projects(project_id=None, branch=None, operations=None, description=None):
         db_service = DatabaseService()
         return db_service.search_projects(
@@ -110,6 +105,9 @@ class ProjectService:
         # Fetch and preprocess the investment data
         df = ProjectService.get_investment_dataframe(project_id)
 
+        # Standardize column names to lowercase
+        df.columns = df.columns.str.lower()
+
         # Debugging: Print the header of the DataFrame
         print("[DEBUG] DataFrame header:")
         print(df.head())
@@ -119,8 +117,8 @@ class ProjectService:
             return
 
         # Ensure the required columns are initialized
-        df["Depreciation"] = 0.0
-        df["Remaining Asset Value"] = 0.0
+        df["depreciation"] = 0.0
+        df["remaining asset value"] = 0.0
 
         # Query the depreciation method details for the project
         method_details = db_service.get_depreciation_method_details(project_id)
@@ -134,9 +132,9 @@ class ProjectService:
         depreciation_factor = float(depreciation_percentage) / 100
 
         # Extend the DataFrame to include years up to 2040
-        last_year = df["Year"].max()
+        last_year = df["year"].max()
         for year in range(last_year + 1, 2041):
-            df = pd.concat([df, pd.DataFrame({"Year": [year], "Investment Amount": [0.0], "Depreciation Start Year": [False]})], ignore_index=True)
+            df = pd.concat([df, pd.DataFrame({"year": [year], "investment amount": [0.0], "depreciation start year": [False]})], ignore_index=True)
 
         # Initialize variables
         depreciation_started = False
@@ -145,26 +143,26 @@ class ProjectService:
         # Iterate through each row to calculate depreciation
         for i in range(len(df)):
             # Add new investments to the remaining asset value
-            remaining_asset_value += df.loc[i, "Investment Amount"]
+            remaining_asset_value += df.loc[i, "investment amount"]
 
             # Check if depreciation should start
-            if not depreciation_started and df.loc[i, "Depreciation Start Year"]:
+            if not depreciation_started and df.loc[i, "depreciation start year"]:
                 depreciation_started = True
 
             if depreciation_started:
                 # Calculate depreciation for the year
-                df.loc[i, "Depreciation"] = remaining_asset_value * depreciation_factor
-                remaining_asset_value -= df.loc[i, "Depreciation"]
+                df.loc[i, "depreciation"] = remaining_asset_value * depreciation_factor
+                remaining_asset_value -= df.loc[i, "depreciation"]
 
             # Update the remaining asset value for the current year
-            df.loc[i, "Remaining Asset Value"] = remaining_asset_value
+            df.loc[i, "remaining asset value"] = remaining_asset_value
 
         # If depreciation never started, raise a warning
         if not depreciation_started:
             print("[WARNING] Depreciation never started for project. Ensure at least one row has 'Depreciation Start Year' set to True.")
 
         # Reorder columns to place 'Depreciation' before 'Remaining Asset Value'
-        df = df[["Year", "Investment Amount", "Depreciation Start Year", "Depreciation", "Remaining Asset Value"]]
+        df = df[["year", "investment amount", "depreciation start year", "depreciation", "remaining asset value"]]
 
         # Debug: Print the DataFrame
         print("[DEBUG] Investment DataFrame for Percentage Depreciation:")
@@ -185,6 +183,9 @@ class ProjectService:
         # Fetch and preprocess the investment data
         df = ProjectService.get_investment_dataframe(project_id)
 
+        # Standardize column names to lowercase
+        df.columns = df.columns.str.lower()
+
         # Debugging: Print the header of the DataFrame
         print("[DEBUG] DataFrame header:")
         print(df.head())
@@ -194,8 +195,8 @@ class ProjectService:
             return
 
         # Ensure the required columns are initialized
-        df["Depreciation"] = 0.0
-        df["Remaining Asset Value"] = 0.0
+        df["depreciation"] = 0.0
+        df["remaining asset value"] = 0.0
 
         # Query the depreciation method details for the project
         method_details = db_service.get_depreciation_method_details(project_id)
@@ -206,13 +207,13 @@ class ProjectService:
         print(f"[DEBUG] Depreciation Years for Project {project_id}: {depreciation_years}")
 
         # Extend the DataFrame to include years up to 2040
-        min_year, max_year = df["Year"].min(), 2040
+        min_year, max_year = df["year"].min(), 2040
         for year in range(min_year, max_year + 1):
-            if year not in df["Year"].values:
-                df = pd.concat([df, pd.DataFrame({"Year": [year], "Investment Amount": [0.0], "Depreciation Start Year": [False]})], ignore_index=True)
+            if year not in df["year"].values:
+                df = pd.concat([df, pd.DataFrame({"year": [year], "investment amount": [0.0], "depreciation start year": [False]})], ignore_index=True)
 
         # Sort the DataFrame by year
-        df = df.sort_values(by="Year").reset_index(drop=True)
+        df = df.sort_values(by="year").reset_index(drop=True)
 
         # Initialize variables
         depreciation_started = False
@@ -222,27 +223,27 @@ class ProjectService:
         # Iterate through each row to calculate depreciation
         for i in range(len(df)):
             # Add new investments to the remaining asset value
-            remaining_asset_value += df.loc[i, "Investment Amount"]
+            remaining_asset_value += df.loc[i, "investment amount"]
 
             # Check if depreciation should start
-            if not depreciation_started and df.loc[i, "Depreciation Start Year"]:
+            if not depreciation_started and df.loc[i, "depreciation start year"]:
                 depreciation_started = True
                 yearly_depreciation = remaining_asset_value / depreciation_years  # Calculate fixed yearly depreciation
 
             if depreciation_started:
                 # Apply the fixed yearly depreciation
-                df.loc[i, "Depreciation"] = yearly_depreciation
+                df.loc[i, "depreciation"] = yearly_depreciation
                 remaining_asset_value -= yearly_depreciation
 
             # Update the remaining asset value for the current year
-            df.loc[i, "Remaining Asset Value"] = max(remaining_asset_value, 0.0)  # Ensure it doesn't go below zero
+            df.loc[i, "remaining asset value"] = max(remaining_asset_value, 0.0)  # Ensure it doesn't go below zero
 
         # If depreciation never started, raise a warning
         if not depreciation_started:
             print("[WARNING] Depreciation never started for project. Ensure at least one row has 'Depreciation Start Year' set to True.")
 
         # Reorder columns to place 'Depreciation' before 'Remaining Asset Value'
-        df = df[["Year", "Investment Amount", "Depreciation Start Year", "Depreciation", "Remaining Asset Value"]]
+        df = df[["year", "investment amount", "depreciation start year", "depreciation", "remaining asset value"]]
 
         # Debug: Print the DataFrame
         print("[DEBUG] Investment DataFrame for Years Depreciation:")
@@ -254,13 +255,24 @@ class ProjectService:
     @staticmethod
     def calculate_depreciation_for_all_projects():
         """
-        Placeholder for calculating depreciation for all projects.
-        This function will iterate through all projects and calculate depreciation.
+        Calculate depreciation for all projects sequentially.
         """
-        print("[INFO] Calculating depreciation for all projects...")
-        # Placeholder logic: Iterate through all projects and calculate depreciation
-        # Example: Fetch all project IDs and call calculate_depreciation(project_id)
-        pass
+        print("[INFO] Starting depreciation calculation for all projects...")
+
+        db_service = DatabaseService()
+
+        # Fetch all project IDs
+        project_ids = db_service.get_all_project_ids()
+        print(f"[INFO] Found {len(project_ids)} projects to process.")
+
+        for project_id in project_ids:
+            try:
+                print(f"[INFO] Processing project ID: {project_id}")
+                ProjectService.handle_depreciation_calculation(project_id)
+            except Exception as e:
+                print(f"[ERROR] Failed to calculate depreciation for project ID {project_id}: {e}")
+
+        print("[INFO] Completed depreciation calculation for all projects.")
 
     @staticmethod
     def generate_report(transform=False, last_year=None, output_file="depreciation_report.xlsx") -> pd.DataFrame:

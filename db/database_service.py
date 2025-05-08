@@ -399,6 +399,17 @@ class DatabaseService:
         :param project_id: The ID of the project.
         :param df: A pandas DataFrame containing the depreciation results.
         """
+        # Debugging: Print the DataFrame before saving
+        print("[DEBUG] DataFrame to be saved:")
+        print(df.head())
+
+        # Standardize column names to lowercase
+        df.columns = df.columns.str.lower()
+
+        # Ensure required columns exist
+        if not {'year', 'depreciation', 'remaining asset value'}.issubset(df.columns):
+            raise ValueError("Missing required columns in the DataFrame: 'year', 'depreciation', 'remaining asset value'")
+
         query = """
             INSERT INTO calculated_depreciations (project_id, year, depreciation_value, remaining_value)
             VALUES (%s, %s, %s, %s)
@@ -406,19 +417,23 @@ class DatabaseService:
             SET depreciation_value = EXCLUDED.depreciation_value,
                 remaining_value = EXCLUDED.remaining_value;
         """
-        # Ensure each row of the DataFrame matches the database schema types
-        for index, row in df.iterrows():
-            year = int(row["Year"])  # Convert Year to integer
-            depreciation = float(row["Depreciation"])  # Convert Depreciation to float
-            remaining_value = float(row["Remaining Asset Value"])  # Convert Remaining Asset Value to float
 
-            params = (
-                project_id,  # project_id is already text
-                year,
-                depreciation,
-                remaining_value
-            )
-            self.execute_query(query, params)
+        for index, row in df.iterrows():
+            try:
+                year = int(row["year"])
+                depreciation = float(row["depreciation"])
+                remaining_value = float(row["remaining asset value"])
+
+                params = (
+                    project_id,
+                    year,
+                    depreciation,
+                    remaining_value
+                )
+
+                self.execute_query(query, params)
+            except Exception as e:
+                print(f"[ERROR] Failed to save row {index}: {e}")
 
     def fetch_report_data(self, project_id: str):
         """
@@ -620,3 +635,12 @@ class DatabaseService:
         except Exception as e:
             print(f"[ERROR] Failed to save project classifications batch: {e}")
             raise
+
+    def get_all_project_ids(self):
+        """
+        Fetch all project IDs from the database.
+        :return: A list of project IDs.
+        """
+        query = "SELECT project_id FROM projects"
+        results = self.execute_query(query, fetch=True)
+        return [row['project_id'] for row in results]
