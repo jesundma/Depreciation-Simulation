@@ -275,83 +275,90 @@ class ProjectService:
         print("[INFO] Completed depreciation calculation for all projects.")
 
     @staticmethod
-    def generate_report(transform=False, last_year=None, output_file="depreciation_report.xlsx") -> pd.DataFrame:
-        """
-        Generate a report for all investments and depreciations across all projects.
-        Always save the report to an Excel file.
-        :param transform: Whether to transform the DataFrame so years are columns and project IDs are row labels.
-        :param last_year: The last year to include in the report.
-        :param output_file: Path to save the Excel file (default: "depreciation_report.xlsx").
-        :return: A pandas DataFrame with investments and depreciations shown separately by year.
-        """
-        from db.database_service import DatabaseService
+    def create_investment_depreciation_report(output_file="depreciation_report.xlsx"):
         db_service = DatabaseService()
 
-        # Fetch data using a method from DatabaseService
-        results = db_service.get_all_depreciation_reports()
+        # Fetch classifications and projects data from the database
+        classifications = db_service.get_project_classifications()
+        projects_data = pd.DataFrame(db_service.get_projects_data())
 
-        # Preprocess results to convert Decimal values to float
-        processed_results = [
-            {
-                "project_id": row["project_id"],
-                "Year": int(row["year"]),
-                "Investment Amount": float(row["investment_amount"]) if row["investment_amount"] is not None else 0.0,
-                "Depreciation": float(row["depreciation_value"]) if row["depreciation_value"] is not None else 0.0,
-            }
-            for row in results
-        ]
+        # Convert classifications to a DataFrame
+        classifications_df = pd.DataFrame(classifications)
 
-        # Convert processed results to a DataFrame
-        report_df = pd.DataFrame(processed_results)
+        # Fetch classification descriptions from the database
+        classification_descriptions = pd.DataFrame(db_service.execute_query("SELECT classification_id, description FROM classification_descriptions", fetch=True))
 
-        # Fetch project data
-        projects_df = pd.DataFrame(db_service.get_projects_data())
+        # Merge classifications with descriptions
+        classifications_df = classifications_df.merge(classification_descriptions, left_on="importance", right_on="classification_id", how="left")
 
-        # Debug: Print the fetched projects DataFrame
-        print("[DEBUG] Projects DataFrame:")
-        print(projects_df)
+        # Replace importance with description
+        classifications_df.drop(columns=["importance", "classification_id"], inplace=True)
+        classifications_df.rename(columns={"description": "importance"}, inplace=True)
 
-        # Merge project data into the final DataFrame
-        report_df = report_df.merge(
-            projects_df[['project_id', 'branch', 'operations', 'description']],
-            on='project_id',
-            how='left'
-        )
+        # Fetch depreciation data from the database
+        depreciation_data = pd.DataFrame(db_service.execute_query("SELECT project_id, year, depreciation_value FROM calculated_depreciations", fetch=True))
 
-        # Separate investments and depreciation into two DataFrames
-        investments_df = report_df.pivot(index='project_id', columns='Year', values='Investment Amount')
-        depreciation_df = report_df.pivot(index='project_id', columns='Year', values='Depreciation')
+        # Merge classifications with projects_data and depreciation_data
+        merged_data = projects_data.merge(classifications_df, on="project_id", how="left")
+        merged_data = merged_data.merge(depreciation_data, on="project_id", how="left")
 
-        # Rename columns to distinguish between investments and depreciation
-        investments_df.columns = [f"Investment {col}" for col in investments_df.columns]
-        depreciation_df.columns = [f"Depreciation {col}" for col in depreciation_df.columns]
+        # Ensure depreciation_value is numeric
+        merged_data["depreciation_value"] = pd.to_numeric(merged_data["depreciation_value"], errors="coerce").fillna(0)
 
-        # Concatenate investments and depreciation DataFrames horizontally
-        combined_df = pd.concat([investments_df, depreciation_df], axis=1)
+        # Group by importance, branch, operations, and year, and calculate total depreciations
+        grouped_data = merged_data.groupby(["importance", "branch", "operations", "year"]).agg(
+            Total_Depreciations=("depreciation_value", "sum")
+        ).reset_index()
 
-        # Add project details (branch, operations, description) to the DataFrame
-        project_details = projects_df.set_index('project_id')[['branch', 'operations', 'description']]
-        combined_df = project_details.join(combined_df)
+        # Pivot the data to show years as columns
+        pivoted_data = grouped_data.pivot(index=["importance", "branch", "operations"], columns="year", values="Total_Depreciations").fillna(0)
 
-        if last_year is not None:
-            # Filter columns to include only data up to the selected year
-            investment_cols = [col for col in combined_df.columns if col.startswith("Investment") and int(col.split()[-1]) <= last_year]
-            depreciation_cols = [col for col in combined_df.columns if col.startswith("Depreciation") and int(col.split()[-1]) <= last_year]
-            combined_df = combined_df[['branch', 'operations', 'description'] + investment_cols + depreciation_cols]
+        # Save the pivoted data to an Excel file
+        pivoted_data.to_excel(output_file, sheet_name="Depreciation Report", index=True)
+        print(f"[INFO] Depreciation data grouped by importance (with descriptions), branch, operations, and year saved to {output_file}")
 
-        # Ensure all values in columns for years 2025 to 2035 is positive
-        year_columns = [col for col in combined_df.columns if any(str(year) in col for year in range(2025, 2036))]
-        combined_df[year_columns] = combined_df[year_columns].abs()
+    @staticmethod
+    def group_projects_by_importance(output_file="importance_grouped_data.xlsx"):
+        db_service = DatabaseService()
 
-        # Save the DataFrame to an Excel file
-        combined_df.to_excel(output_file, sheet_name="Depreciation Report", index=True)
-        print(f"[INFO] Report saved to {output_file}")
+        # Fetch classifications and projects data from the database
+        classifications = db_service.get_project_classifications()
+        projects_data = pd.DataFrame(db_service.get_projects_data())
 
-        # Debug: Print the generated report DataFrame
-        print("[DEBUG] Generated report DataFrame:")
-        print(combined_df)
+        # Convert classifications to a DataFrame
+        classifications_df = pd.DataFrame(classifications)
 
-        return combined_df
+        # Fetch classification descriptions from the database
+        classification_descriptions = pd.DataFrame(db_service.execute_query("SELECT classification_id, description FROM classification_descriptions", fetch=True))
+
+        # Merge classifications with descriptions
+        classifications_df = classifications_df.merge(classification_descriptions, left_on="importance", right_on="classification_id", how="left")
+
+        # Replace importance with description
+        classifications_df.drop(columns=["importance", "classification_id"], inplace=True)
+        classifications_df.rename(columns={"description": "importance"}, inplace=True)
+
+        # Fetch investments data from the database
+        investments_data = pd.DataFrame(db_service.execute_query("SELECT project_id, year, investment_amount FROM investments", fetch=True))
+
+        # Merge classifications with projects_data and investments_data
+        merged_data = projects_data.merge(classifications_df, on="project_id", how="left")
+        merged_data = merged_data.merge(investments_data, on="project_id", how="left")
+
+        # Ensure investment_amount is numeric
+        merged_data["investment_amount"] = pd.to_numeric(merged_data["investment_amount"], errors="coerce").fillna(0)
+
+        # Group by importance, branch, operations, and year, and calculate total investments
+        grouped_data = merged_data.groupby(["importance", "branch", "operations", "year"]).agg(
+            Total_Investments=("investment_amount", "sum")
+        ).reset_index()
+
+        # Pivot the data to show years as columns
+        pivoted_data = grouped_data.pivot(index=["importance", "branch", "operations"], columns="year", values="Total_Investments").fillna(0)
+
+        # Save the pivoted data to an Excel file
+        pivoted_data.to_excel(output_file, sheet_name="Grouped by Importance", index=True)
+        print(f"[INFO] Grouped data by importance (with descriptions), branch, operations, and year saved to {output_file}")
 
     @staticmethod
     def read_projects_from_excel():
@@ -657,36 +664,4 @@ class ProjectService:
         print("[DEBUG] Cleaned DataFrame columns:", df.columns)
 
         return df
-
-def fetch_depreciation_methods():
-    """
-    Fetches depreciation method descriptions from the database.
-    """
-    try:
-        from db.database_service import DatabaseService
-        db_service = DatabaseService()
-        query = "SELECT method_description FROM depreciation_schedules"
-        results = db_service.execute_query(query, fetch=True)
-        return [row['method_description'] for row in results]
-    except Exception as e:
-        print(f"Error fetching depreciation methods: {e}")
-        return []
-
-# Group by importance and calculate total investments and year-wise investments
-grouped_data = investment_depreciation_df.merge(
-    projects_data, left_on="Project ID", right_on="project_id", how="left"
-).groupby("importance").agg(
-    Projects=("Project ID", list),
-    Total_Investments=("Investment Amount", "sum"),
-    **{str(year): ("Investment Amount", "sum") for year in sorted(investment_depreciation_df["Year"].unique())}
-).reset_index()
-
-# Ensure yearly columns are calculated correctly by summing only relevant rows
-for year in sorted(investment_depreciation_df["Year"].unique()):
-    grouped_data[str(year)] = grouped_data.apply(
-        lambda row: investment_depreciation_df[
-            (investment_depreciation_df["Year"] == year) &
-            (investment_depreciation_df["Project ID"].isin(row["Projects"]))
-        ]["Investment Amount"].sum(), axis=1
-    )
 

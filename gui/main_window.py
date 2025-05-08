@@ -194,9 +194,14 @@ def main_window():
 
     # Add Reporting menu
     reporting_menu = tk.Menu(menu_bar, tearoff=0)
+    
     reporting_menu.add_command(
-        label="Generate Report",
-        command=open_generate_report_window
+        label="Create Investment Depreciation Report",
+        command=ProjectService.create_investment_depreciation_report
+    )
+    reporting_menu.add_command(
+        label="Group Projects by Importance",
+        command=ProjectService.group_projects_by_importance
     )
     menu_bar.add_cascade(label="Reporting", menu=reporting_menu)
 

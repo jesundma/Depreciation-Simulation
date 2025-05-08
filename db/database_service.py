@@ -644,3 +644,11 @@ class DatabaseService:
         query = "SELECT project_id FROM projects"
         results = self.execute_query(query, fetch=True)
         return [row['project_id'] for row in results]
+
+    def get_project_classifications(self):
+        """
+        Fetch all project classifications from the database.
+        :return: A list of dictionaries containing project_id, importance, and type.
+        """
+        query = "SELECT project_id, importance, type FROM project_classifications"
+        return self.execute_query(query, fetch=True)
