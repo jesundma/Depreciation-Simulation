@@ -511,3 +511,28 @@ class DatabaseService:
 
             params = (project_id, importance, classification_type)
             self.execute_query(query, params)
+
+    def save_projects_batch(self, projects):
+        """
+        Save multiple projects in the database in a single batch.
+        :param projects: A list of tuples (project_id, branch, operations, description, depreciation_method).
+        """
+        query = """
+            INSERT INTO projects (project_id, branch, operations, description, depreciation_method)
+            VALUES %s
+            ON CONFLICT (project_id) DO UPDATE
+            SET branch = EXCLUDED.branch,
+                operations = EXCLUDED.operations,
+                description = EXCLUDED.description,
+                depreciation_method = EXCLUDED.depreciation_method;
+        """
+        try:
+            # Use psycopg2's execute_values for efficient batch inserts
+            from psycopg2.extras import execute_values
+            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                with conn.cursor() as cur:
+                    execute_values(cur, query, projects)
+                    conn.commit()
+        except Exception as e:
+            print(f"[ERROR] Failed to save projects batch: {e}")
+            raise

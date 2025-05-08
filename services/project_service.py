@@ -315,12 +315,11 @@ class ProjectService:
         return combined_df
 
     @staticmethod
-    def read_project_data_from_excel():
+    def read_projects_from_excel():
         """
-        Read all project and investment data from an Excel file, including classifications.
+        Read and save project data from an Excel file to the 'projects' table.
         """
         try:
-            # Open a file dialog to select the Excel file
             file_path = filedialog.askopenfilename(
                 title="Select Excel File",
                 filetypes=[("Excel Files", "*.xlsx *.xls")]
@@ -330,46 +329,144 @@ class ProjectService:
                 print("[INFO] No file selected.")
                 return
 
-            # Read the selected Excel file
             df = pd.read_excel(file_path)
 
-            print("[INFO] Data from Excel:")
+            print("[INFO] Project data from Excel:")
             print(df)
 
-            # Process all data from the Excel file
             ProjectService.create_projects_from_dataframe(df)
-            ProjectService.create_investments_from_dataframe(df)
-
-            # Process project classifications
-            if "importance" in df.columns and "type" in df.columns:
-                classifications = df[["project_id", "importance", "type"]].dropna()
-                ProjectService.create_project_classifications_from_dataframe(classifications)
 
         except FileNotFoundError:
             print(f"[ERROR] File not found: {file_path}")
         except Exception as e:
-            print(f"[ERROR] Failed to read data from Excel: {e}")
+            print(f"[ERROR] Failed to read project data from Excel: {e}")
 
     @staticmethod
-    def create_projects_from_dataframe(df: pd.DataFrame):
+    def read_project_classifications_from_excel():
         """
-        Create new projects in the database from a DataFrame.
-        :param df: A pandas DataFrame with columns: project_id, branch, operations, description, depreciation_method.
+        Read and save project classifications from an Excel file to the 'project_classifications' table.
+        """
+        try:
+            file_path = filedialog.askopenfilename(
+                title="Select Excel File",
+                filetypes=[("Excel Files", "*.xlsx *.xls")]
+            )
+
+            if not file_path:
+                print("[INFO] No file selected.")
+                return
+
+            df = pd.read_excel(file_path)
+
+            if "importance" in df.columns and "type" in df.columns:
+                classifications = df[["project_id", "importance", "type"]].dropna()
+                ProjectService.create_project_classifications_from_dataframe(classifications)
+            else:
+                print("[WARNING] 'importance' or 'type' columns not found in the Excel file.")
+
+        except FileNotFoundError:
+            print(f"[ERROR] File not found: {file_path}")
+        except Exception as e:
+            print(f"[ERROR] Failed to read project classifications from Excel: {e}")
+
+    @staticmethod
+    def read_investments_from_excel():
+        """
+        Read and save investment data from an Excel file to the 'investments' table.
+        """
+        try:
+            file_path = filedialog.askopenfilename(
+                title="Select Excel File",
+                filetypes=[("Excel Files", "*.xlsx *.xls")]
+            )
+
+            if not file_path:
+                print("[INFO] No file selected.")
+                return
+
+            df = pd.read_excel(file_path)
+
+            print("[INFO] Investment data from Excel:")
+            print(df)
+
+            ProjectService.create_investments_from_dataframe(df)
+
+        except FileNotFoundError:
+            print(f"[ERROR] File not found: {file_path}")
+        except Exception as e:
+            print(f"[ERROR] Failed to read investment data from Excel: {e}")
+
+    @staticmethod
+    def read_depreciation_years_from_excel():
+        """
+        Read and save depreciation years from an Excel file to the database.
+        """
+        try:
+            file_path = filedialog.askopenfilename(
+                title="Select Excel File",
+                filetypes=[("Excel Files", "*.xlsx *.xls")]
+            )
+
+            if not file_path:
+                print("[INFO] No file selected.")
+                return
+
+            df = pd.read_excel(file_path)
+
+            print("[INFO] Depreciation years data from Excel:")
+            print(df)
+
+            # Process and save the data to the database
+            ProjectService.create_depreciation_years_from_dataframe(df)
+
+        except FileNotFoundError:
+            print(f"[ERROR] File not found: {file_path}")
+        except Exception as e:
+            print(f"[ERROR] Failed to read depreciation years from Excel: {e}")
+
+    @staticmethod
+    def create_depreciation_years_from_dataframe(df: pd.DataFrame):
+        """
+        Create depreciation years in the database from a DataFrame.
+        :param df: A pandas DataFrame with columns: depreciation_id, depreciation_years.
         """
         from db.database_service import DatabaseService
         db_service = DatabaseService()
 
         for _, row in df.iterrows():
-            project = Project(
-                project_id=row['project_id'],
-                branch=row['branch'],
-                operations=row['operations'],
-                description=row['description'],
-                depreciation_method=row['depreciation_method']
-            )
-            db_service.save_project(project)
+            try:
+                db_service.save_depreciation_schedule(
+                    depreciation_percentage=None,  # Assuming only years are provided
+                    depreciation_years=row['depreciation_years'],
+                    method_description=row.get('method_description', "")
+                )
+            except Exception as e:
+                print(f"[WARNING] Skipping row due to error: {e}")
 
-        print("[INFO] Projects created successfully from DataFrame.")
+        print("[INFO] Depreciation years saved successfully from DataFrame.")
+
+    @staticmethod
+    def create_projects_from_dataframe(df: pd.DataFrame):
+        """
+        Create new projects in the database from a DataFrame in batches.
+        :param df: A pandas DataFrame with columns: project_id, branch, operations, description, depreciation_method.
+        """
+        from db.database_service import DatabaseService
+        db_service = DatabaseService()
+
+        # Deduplicate the project data by project_id
+        project_data = list({row['project_id']: (
+            row['project_id'],
+            row['branch'],
+            row['operations'],
+            row['description'],
+            row['depreciation_method']
+        ) for _, row in df.iterrows()}.values())
+
+        # Save projects in a single batch
+        db_service.save_projects_batch(project_data)
+
+        print("[INFO] Projects created successfully from DataFrame in batches.")
 
     @staticmethod
     def create_investments_from_dataframe(df: pd.DataFrame, chunk_size=100):
@@ -416,16 +513,19 @@ class ProjectService:
         from db.database_service import DatabaseService
         db_service = DatabaseService()
 
+        classifications = []
         for _, row in df.iterrows():
             project_id = row["project_id"]
-            importance = int(row["importance"])
-            classification_type = int(row["type"])
+            importance = row["importance"]
+            classification_type = row["type"]
 
-            # Save classification data (query will be added later)
-            print(f"[INFO] Saving classification for project {project_id}: Importance={importance}, Type={classification_type}")
-            # db_service.save_project_classification(project_id, importance, classification_type)
+            if isinstance(importance, int) and isinstance(classification_type, int):
+                classifications.append((project_id, importance, classification_type))
+            else:
+                print(f"[WARNING] Skipping invalid classification for project {project_id}: Importance={importance}, Type={classification_type}")
 
-        print("[INFO] Project classifications created successfully from DataFrame.")
+        db_service.save_project_classifications(classifications)
+        print("[INFO] Project classifications saved successfully.")
 
 def fetch_depreciation_methods():
     """

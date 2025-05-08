@@ -174,7 +174,9 @@ def main_window():
     investment_menu = tk.Menu(menu_bar, tearoff=0)
     investment_menu.add_command(label="Open Project", command=open_project)
     investment_menu.add_command(label="Create Project", command=save_project)
-    investment_menu.add_command(label="Read Project Data from Excel", command=ProjectService.read_project_data_from_excel)  # Updated menu item
+    investment_menu.add_command(label="Read Projects from Excel", command=ProjectService.read_projects_from_excel)
+    investment_menu.add_command(label="Read Project Classifications from Excel", command=ProjectService.read_project_classifications_from_excel)
+    investment_menu.add_command(label="Read Investments from Excel", command=ProjectService.read_investments_from_excel)
     menu_bar.add_cascade(label="Investment Projects", menu=investment_menu)
 
     # Add Setup and Maintenance menu
