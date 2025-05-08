@@ -252,6 +252,17 @@ class ProjectService:
         db_service.save_calculated_depreciations(project_id, df)
 
     @staticmethod
+    def calculate_depreciation_for_all_projects():
+        """
+        Placeholder for calculating depreciation for all projects.
+        This function will iterate through all projects and calculate depreciation.
+        """
+        print("[INFO] Calculating depreciation for all projects...")
+        # Placeholder logic: Iterate through all projects and calculate depreciation
+        # Example: Fetch all project IDs and call calculate_depreciation(project_id)
+        pass
+
+    @staticmethod
     def generate_report(transform=False, last_year=None, output_file="depreciation_report.xlsx") -> pd.DataFrame:
         """
         Generate a report for all investments and depreciations across all projects.

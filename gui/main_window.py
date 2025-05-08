@@ -188,7 +188,7 @@ def main_window():
 
     # Add Depreciation Calculation menu
     depreciation_menu = tk.Menu(menu_bar, tearoff=0)
-    depreciation_menu.add_command(label="Calculate Depreciation", command=setup_depreciation_window)
+    depreciation_menu.add_command(label="Calculate Depreciation", command=ProjectService.calculate_depreciation_for_all_projects)
     depreciation_menu.add_command(label="Define Last Depreciation Calculation Year", command=define_last_depreciation_year)
     menu_bar.add_cascade(label="Depreciation Calculation", menu=depreciation_menu)
 
