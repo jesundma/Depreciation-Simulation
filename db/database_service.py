@@ -515,8 +515,10 @@ class DatabaseService:
             from psycopg2.extras import execute_values
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cur:
+                    print(f"[DEBUG] Attempting to save {len(investments)} investments in batch.")
                     execute_values(cur, query, investments)
                     conn.commit()
+                    print(f"[DEBUG] Successfully saved {len(investments)} investments in batch.")
         except Exception as e:
             print(f"[ERROR] Failed to save investments batch: {e}")
             raise
@@ -572,4 +574,49 @@ class DatabaseService:
             print(f"[INFO] Successfully saved {len(projects)} projects in batch.")
         except Exception as e:
             print(f"[ERROR] Failed to save projects batch: {e}")
+            raise
+
+    def save_depreciation_years_batch(self, depreciation_years_data):
+        """
+        Save multiple depreciation years in the database in a single batch.
+        :param depreciation_years_data: A list of tuples (project_id, year, depreciation_year).
+        """
+        query = """
+            UPDATE investments
+            SET depreciation_start_year = data.depreciation_year
+            FROM (VALUES %s) AS data(project_id, year, depreciation_year)
+            WHERE investments.project_id = data.project_id AND investments.year = data.year;
+        """
+        try:
+            from psycopg2.extras import execute_values
+            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                with conn.cursor() as cur:
+                    execute_values(cur, query, depreciation_years_data, template=None)
+                    conn.commit()
+        except Exception as e:
+            print(f"[ERROR] Failed to save depreciation years batch: {e}")
+            raise
+
+    def save_project_classifications_batch(self, classifications):
+        """
+        Save or update project classifications in the database in a single batch.
+        :param classifications: A list of tuples (project_id, importance, type).
+        """
+        query = """
+            INSERT INTO project_classifications (project_id, importance, type)
+            VALUES %s
+            ON CONFLICT (project_id) DO UPDATE
+            SET importance = EXCLUDED.importance,
+                type = EXCLUDED.type;
+        """
+        try:
+            from psycopg2.extras import execute_values
+            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                with conn.cursor() as cur:
+                    print(f"[DEBUG] Attempting to save {len(classifications)} project classifications in batch.")
+                    execute_values(cur, query, classifications)
+                    conn.commit()
+                    print(f"[DEBUG] Successfully saved {len(classifications)} project classifications in batch.")
+        except Exception as e:
+            print(f"[ERROR] Failed to save project classifications batch: {e}")
             raise

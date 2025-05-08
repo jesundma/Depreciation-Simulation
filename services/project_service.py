@@ -434,13 +434,13 @@ class ProjectService:
                 print("[INFO] No file selected.")
                 return
 
-            df = pd.read_excel(file_path)
+            df = ProjectService.create_dataframe_from_excel(file_path)
 
             print("[INFO] Depreciation years data from Excel:")
             print(df)
 
-            # Process and save the data to the investments table
-            ProjectService.update_investments_with_depreciation_years(df)
+            # Use create_depreciation_years_from_dataframe instead of update_investments_with_depreciation_years
+            ProjectService.create_depreciation_years_from_dataframe(df)
 
         except FileNotFoundError:
             print(f"[ERROR] File not found: {file_path}")
@@ -487,26 +487,32 @@ class ProjectService:
         from db.database_service import DatabaseService
         db_service = DatabaseService()
 
+        # Ensure project_id is treated as a string
+        df['project_id'] = df['project_id'].astype(str)
+
+        # Prepare depreciation years data for batch processing
+        depreciation_years_data = []
         for _, row in df.iterrows():
             try:
                 project_id = row['project_id']
-                year = int(row['year'])
                 depreciation_years = row['depreciation_years']
 
-                # Ensure depreciation_years is a list
-                if not isinstance(depreciation_years, list):
+                # Ensure depreciation_years is processed correctly
+                if pd.isna(depreciation_years):
+                    depreciation_years = []
+                elif isinstance(depreciation_years, str):
+                    depreciation_years = [int(y.strip()) for y in depreciation_years.split(';') if y.strip().isdigit()]
+                elif isinstance(depreciation_years, int):
                     depreciation_years = [depreciation_years]
 
                 for depreciation_year in depreciation_years:
-                    # Update the investments table for each year in the list
-                    db_service.save_depreciation_start_year(
-                        project_id=project_id,
-                        year=year,
-                        depreciation_year=depreciation_year
-                    )
+                    # Add to batch data
+                    depreciation_years_data.append((project_id, depreciation_year, depreciation_year))
             except Exception as e:
                 print(f"[WARNING] Skipping row due to error: {e}")
 
+        # Save depreciation years in batch
+        db_service.save_depreciation_years_batch(depreciation_years_data)
         print("[INFO] Depreciation years updated successfully in the investments table.")
 
     @staticmethod
@@ -595,6 +601,7 @@ class ProjectService:
         from db.database_service import DatabaseService
         db_service = DatabaseService()
 
+        # Prepare project classifications data for batch processing
         classifications = []
         for _, row in df.iterrows():
             project_id = row["project_id"]
@@ -606,8 +613,9 @@ class ProjectService:
             else:
                 print(f"[WARNING] Skipping invalid classification for project {project_id}: Importance={importance}, Type={classification_type}")
 
-        db_service.save_project_classifications(classifications)
-        print("[INFO] Project classifications saved successfully.")
+        # Save project classifications in batch
+        db_service.save_project_classifications_batch(classifications)
+        print("[INFO] Project classifications saved successfully in batch.")
 
     @staticmethod
     def create_dataframe_from_excel(file_path: str) -> pd.DataFrame:
