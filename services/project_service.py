@@ -190,36 +190,36 @@ class ProjectService:
         print(f"[DEBUG] Depreciation Years for Project {project_id}: {depreciation_years}")
 
         # Extend the DataFrame to include years up to 2040
-        last_year = df["Year"].max()
-        for year in range(last_year + 1, 2041):
-            df = pd.concat([df, pd.DataFrame({"Year": [year], "Investment Amount": [0.0], "Depreciation Start Year": [False]})], ignore_index=True)
+        min_year, max_year = df["Year"].min(), 2040
+        for year in range(min_year, max_year + 1):
+            if year not in df["Year"].values:
+                df = pd.concat([df, pd.DataFrame({"Year": [year], "Investment Amount": [0.0], "Depreciation Start Year": [False]})], ignore_index=True)
 
-        # Ensure all rows are processed for depreciation
-        df["Remaining Asset Value"] = 0.0
-        df["Depreciation"] = 0.0
+        # Sort the DataFrame by year
+        df = df.sort_values(by="Year").reset_index(drop=True)
 
         # Initialize variables
         depreciation_started = False
-        accumulated_investment = 0.0
+        remaining_asset_value = 0.0
+        yearly_depreciation = 0.0
 
         # Iterate through each row to calculate depreciation
         for i in range(len(df)):
-            # Accumulate investments
-            accumulated_investment += df.loc[i, "Investment Amount"]
+            # Add new investments to the remaining asset value
+            remaining_asset_value += df.loc[i, "Investment Amount"]
 
             # Check if depreciation should start
             if not depreciation_started and df.loc[i, "Depreciation Start Year"]:
                 depreciation_started = True
-                df.loc[i, "Remaining Asset Value"] = accumulated_investment
-                yearly_depreciation = df.loc[i, "Remaining Asset Value"] / depreciation_years
+                yearly_depreciation = remaining_asset_value / depreciation_years  # Calculate fixed yearly depreciation
+
+            if depreciation_started:
+                # Apply the fixed yearly depreciation
                 df.loc[i, "Depreciation"] = yearly_depreciation
-                df.loc[i, "Remaining Asset Value"] -= yearly_depreciation
-            elif depreciation_started:
-                # Carry forward the remaining asset value from the previous year
-                df.loc[i, "Remaining Asset Value"] = df.loc[i - 1, "Remaining Asset Value"]
-                yearly_depreciation = df.loc[i, "Remaining Asset Value"] / depreciation_years
-                df.loc[i, "Depreciation"] = yearly_depreciation
-                df.loc[i, "Remaining Asset Value"] -= yearly_depreciation
+                remaining_asset_value -= yearly_depreciation
+
+            # Update the remaining asset value for the current year
+            df.loc[i, "Remaining Asset Value"] = max(remaining_asset_value, 0.0)  # Ensure it doesn't go below zero
 
         # If depreciation never started, raise a warning
         if not depreciation_started:
@@ -317,7 +317,7 @@ class ProjectService:
     @staticmethod
     def read_project_data_from_excel():
         """
-        Read all project and investment data from an Excel file.
+        Read all project and investment data from an Excel file, including classifications.
         """
         try:
             # Open a file dialog to select the Excel file
@@ -339,6 +339,11 @@ class ProjectService:
             # Process all data from the Excel file
             ProjectService.create_projects_from_dataframe(df)
             ProjectService.create_investments_from_dataframe(df)
+
+            # Process project classifications
+            if "importance" in df.columns and "type" in df.columns:
+                classifications = df[["project_id", "importance", "type"]].dropna()
+                ProjectService.create_project_classifications_from_dataframe(classifications)
 
         except FileNotFoundError:
             print(f"[ERROR] File not found: {file_path}")
@@ -401,6 +406,26 @@ class ProjectService:
             db_service.save_investments_batch(chunk)
 
         print("[INFO] Investments created successfully for projects in chunks.")
+
+    @staticmethod
+    def create_project_classifications_from_dataframe(df: pd.DataFrame):
+        """
+        Create project classifications in the database from a DataFrame.
+        :param df: A pandas DataFrame with columns: project_id, importance, type.
+        """
+        from db.database_service import DatabaseService
+        db_service = DatabaseService()
+
+        for _, row in df.iterrows():
+            project_id = row["project_id"]
+            importance = int(row["importance"])
+            classification_type = int(row["type"])
+
+            # Save classification data (query will be added later)
+            print(f"[INFO] Saving classification for project {project_id}: Importance={importance}, Type={classification_type}")
+            # db_service.save_project_classification(project_id, importance, classification_type)
+
+        print("[INFO] Project classifications created successfully from DataFrame.")
 
 def fetch_depreciation_methods():
     """

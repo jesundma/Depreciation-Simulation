@@ -319,25 +319,6 @@ class DatabaseService:
 
         return self.execute_query(query, params, fetch=True)
 
-    def clean_database(self):
-        """
-        Cleans the database by dropping all tables in the public schema.
-        """
-        query = """
-            DO $$
-            DECLARE
-                table_name text;
-            BEGIN
-                FOR table_name IN
-                    SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-                LOOP
-                    EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', table_name);
-                END LOOP;
-            END;
-            $$;
-        """
-        self.execute_query(query)
-
     def fetch_depreciation_methods(self):
         """
         Fetches depreciation method descriptions along with their IDs from the database.
@@ -509,3 +490,24 @@ class DatabaseService:
         except Exception as e:
             print(f"[ERROR] Failed to save investments batch: {e}")
             raise
+
+    def save_project_classifications(self, classifications):
+        """
+        Save or update project classifications in the database.
+        :param classifications: A list of tuples (project_id, importance, type).
+        """
+        query = """
+            INSERT INTO project_classifications (project_id, importance, type)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (project_id) DO UPDATE
+            SET importance = EXCLUDED.importance,
+                type = EXCLUDED.type;
+        """
+        for project_id, importance, classification_type in classifications:
+            # Skip entries where importance or type is not an integer
+            if not isinstance(importance, int) or not isinstance(classification_type, int):
+                print(f"[WARNING] Skipping classification for project {project_id}: Importance={importance}, Type={classification_type} (Invalid data)")
+                continue
+
+            params = (project_id, importance, classification_type)
+            self.execute_query(query, params)

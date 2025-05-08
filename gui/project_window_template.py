@@ -22,11 +22,16 @@ def display_project_window(project):
     scrollbar = ttk.Scrollbar(project_window, orient=tk.VERTICAL)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-    # Configure the details frame to work with the scrollbar
-    canvas = tk.Canvas(project_window, yscrollcommand=scrollbar.set)
+    # Add a horizontal scrollbar to the project window
+    h_scrollbar = ttk.Scrollbar(project_window, orient=tk.HORIZONTAL)
+    h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    # Configure the canvas to work with both scrollbars
+    canvas = tk.Canvas(project_window, yscrollcommand=scrollbar.set, xscrollcommand=h_scrollbar.set)
     canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     scrollbar.config(command=canvas.yview)
+    h_scrollbar.config(command=canvas.xview)
 
     # Create a frame inside the canvas
     details_frame = ttk.Frame(canvas)
@@ -70,6 +75,16 @@ def display_project_window(project):
     print(f"Fetching investment schedule for project ID: {project['project_id']}")
     investments = db_service.get_investment_schedule(project['project_id'])
     print(f"Investment schedule query executed. Results: {investments}")
+
+    # Ensure years up to 2040 are included
+    min_year, max_year = 2025, 2040
+    investments_dict = {investment["year"]: investment for investment in investments}
+    investments = []
+    for year in range(min_year, max_year + 1):
+        if year in investments_dict:
+            investments.append(investments_dict[year])
+        else:
+            investments.append({"year": year, "investment_amount": 0.0, "depreciation_start_year": None})
 
     # Fetch the depreciation method description
     depreciation_methods = db_service.fetch_depreciation_methods()
