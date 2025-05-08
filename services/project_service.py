@@ -672,3 +672,21 @@ def fetch_depreciation_methods():
         print(f"Error fetching depreciation methods: {e}")
         return []
 
+# Group by importance and calculate total investments and year-wise investments
+grouped_data = investment_depreciation_df.merge(
+    projects_data, left_on="Project ID", right_on="project_id", how="left"
+).groupby("importance").agg(
+    Projects=("Project ID", list),
+    Total_Investments=("Investment Amount", "sum"),
+    **{str(year): ("Investment Amount", "sum") for year in sorted(investment_depreciation_df["Year"].unique())}
+).reset_index()
+
+# Ensure yearly columns are calculated correctly by summing only relevant rows
+for year in sorted(investment_depreciation_df["Year"].unique()):
+    grouped_data[str(year)] = grouped_data.apply(
+        lambda row: investment_depreciation_df[
+            (investment_depreciation_df["Year"] == year) &
+            (investment_depreciation_df["Project ID"].isin(row["Projects"]))
+        ]["Investment Amount"].sum(), axis=1
+    )
+
