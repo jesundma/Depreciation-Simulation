@@ -4,6 +4,7 @@ from .save_project_window import open_save_project_window
 from .open_project_window import open_open_project_window
 from .setup_window import setup_database_window, setup_depreciation_window
 from services.project_service import ProjectService  # Import the ProjectService class
+from constants import year_range
 import os
 import psycopg2
 from dotenv import load_dotenv
@@ -137,10 +138,10 @@ def open_generate_report_window():
 
     tk.Label(report_window, text="Select the last year for the report:", font=("Arial", 12)).pack(pady=10)
 
-    # Update the dropdown for year selection to range from 2025 to 2040
-    year_combobox = ttk.Combobox(report_window, values=list(range(2025, 2041)), font=("Arial", 12))
+    # Update the dropdown for year selection to use year_range from constants
+    year_combobox = ttk.Combobox(report_window, values=year_range, font=("Arial", 12))
     year_combobox.pack(pady=5)
-    year_combobox.set(2025)  # Default to the first year in the range
+    year_combobox.set(year_range[0])  # Default to the first year in the range
 
     error_label = tk.Label(report_window, text="", font=("Arial", 10), fg="red")
     error_label.pack()

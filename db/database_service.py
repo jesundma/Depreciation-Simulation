@@ -1,5 +1,5 @@
 import psycopg2
-from psycopg2.extras import RealDictCursor
+from psycopg2.extras import RealDictCursor, execute_values
 from dotenv import load_dotenv
 import os
 
@@ -85,6 +85,12 @@ class DatabaseService:
                     remaining_value NUMERIC,
                     PRIMARY KEY (project_id, year)
                 );
+            """)
+
+            # Ensure indexes exist for optimized queries
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_project_id ON projects (project_id);
+                CREATE INDEX IF NOT EXISTS idx_year ON investments (year);
             """)
 
             conn.commit()
@@ -311,6 +317,13 @@ class DatabaseService:
         """
         self.execute_query(query_create_tables)
 
+        # Ensure indexes exist for optimized queries
+        query_create_indexes = """
+            CREATE INDEX IF NOT EXISTS idx_project_id ON projects (project_id);
+            CREATE INDEX IF NOT EXISTS idx_year ON investments (year);
+        """
+        self.execute_query(query_create_indexes)
+
     def load_project(self, project_id):
         """
         Load a project from the database by its ID.
@@ -412,28 +425,31 @@ class DatabaseService:
 
         query = """
             INSERT INTO calculated_depreciations (project_id, year, depreciation_value, remaining_value)
-            VALUES (%s, %s, %s, %s)
+            VALUES %s
             ON CONFLICT (project_id, year) DO UPDATE
             SET depreciation_value = EXCLUDED.depreciation_value,
                 remaining_value = EXCLUDED.remaining_value;
         """
 
-        for index, row in df.iterrows():
-            try:
-                year = int(row["year"])
-                depreciation = float(row["depreciation"])
-                remaining_value = float(row["remaining asset value"])
+        # Prepare data for batch insertion
+        data = [
+            (
+                project_id,
+                int(row["year"]),
+                float(row["depreciation"]),
+                float(row["remaining asset value"])
+            )
+            for _, row in df.iterrows()
+        ]
 
-                params = (
-                    project_id,
-                    year,
-                    depreciation,
-                    remaining_value
-                )
-
-                self.execute_query(query, params)
-            except Exception as e:
-                print(f"[ERROR] Failed to save row {index}: {e}")
+        try:
+            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                with conn.cursor() as cursor:
+                    execute_values(cursor, query, data)
+                    conn.commit()
+            print("[INFO] Batch insertion of calculated depreciations completed successfully.")
+        except Exception as e:
+            print(f"[ERROR] Failed to batch insert calculated depreciations: {e}")
 
     def fetch_report_data(self, project_id: str):
         """
@@ -652,3 +668,36 @@ class DatabaseService:
         """
         query = "SELECT project_id, importance, type FROM project_classifications"
         return self.execute_query(query, fetch=True)
+
+    def clean_database(self):
+        """
+        Clean the database by dropping all tables in the public schema.
+        """
+        try:
+            print("Opening database connection...")
+            conn = psycopg2.connect(self.db_url)
+            cur = conn.cursor()
+
+            print("Clearing all tables...")
+            cur.execute("""
+                DO $$
+                DECLARE
+                    table_name text;
+                BEGIN
+                    FOR table_name IN
+                        SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+                    LOOP
+                        EXECUTE format('DROP TABLE IF EXISTS %I CASCADE', table_name);
+                    END LOOP;
+                END;
+                $$;
+            """)
+
+            conn.commit()
+            cur.close()
+            conn.close()
+
+            print("Database cleaning completed successfully!")
+        except Exception as e:
+            print(f"Database cleaning failed:\n{e}")
+            raise

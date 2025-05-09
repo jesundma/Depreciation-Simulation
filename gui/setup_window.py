@@ -3,40 +3,23 @@ from tkinter import ttk
 from tkinter import messagebox
 from db.database_service import DatabaseService
 from models.project_model import Project
+from gui.status_window import StatusWindow
+from gui.window_factory import WindowFactory
 import random
 import string
 
 def setup_database_window():
-    
-    status_window = tk.Toplevel()
-    status_window.title("Database Setup Status")
-    status_window.geometry("400x300")
-
-    text_area = tk.Text(status_window, wrap=tk.WORD, font=("Arial", 12), height=15, width=50)
-    text_area.pack(pady=20, padx=10, fill=tk.BOTH, expand=True)
-
-    scrollbar = ttk.Scrollbar(status_window, command=text_area.yview)
-    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-    text_area.config(yscrollcommand=scrollbar.set)
-
-    def update_status(message):
-        text_area.insert(tk.END, message + "\n")
-        text_area.see(tk.END)
-        status_window.update_idletasks()
+    status_window = StatusWindow("Database Setup Status")
 
     try:
         db_service = DatabaseService()
 
-        update_status("Creating new tables...")
+        status_window.update_status("Creating new tables...")
         db_service.create_tables()
 
-        update_status("Database setup completed successfully!")
-
+        status_window.update_status("Database setup completed successfully!")
     except Exception as e:
-        update_status(f"Database setup failed:\n{e}")
-
-    close_button = ttk.Button(status_window, text="Close", command=status_window.destroy)
-    close_button.pack(pady=20)
+        status_window.update_status(f"Database setup failed:\n{e}")
 
 def setup_depreciation_window():
     """
@@ -78,31 +61,25 @@ def setup_depreciation_window():
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save depreciation schedule: {e}")
 
-    window = tk.Toplevel()
-    window.title("General Depreciation Setup")
-    window.geometry("400x300")
-
-    tk.Label(window, text="Depreciation Percentage:").pack(pady=5)
     percentage_var = tk.StringVar()
     percentage_var.trace("w", on_percentage_change)
-    percentage_entry = tk.Entry(window, textvariable=percentage_var)
-    percentage_entry.pack(pady=5)
-
-    tk.Label(window, text="Depreciation Years:").pack(pady=5)
     years_var = tk.StringVar()
     years_var.trace("w", on_years_change)
-    years_entry = tk.Entry(window, textvariable=years_var)
-    years_entry.pack(pady=5)
 
-    tk.Label(window, text="Method Description:").pack(pady=5)
-    method_description_entry = tk.Entry(window)
-    method_description_entry.pack(pady=5)
+    # Use WindowFactory to create the setup window and track widgets
+    widget_creators = [
+        ("percentage_entry", lambda parent: tk.Entry(parent, textvariable=percentage_var).pack(pady=5)),
+        ("years_entry", lambda parent: tk.Entry(parent, textvariable=years_var).pack(pady=5)),
+        ("method_description_entry", lambda parent: tk.Entry(parent).pack(pady=5)),
+        ("save_button", lambda parent: tk.Button(parent, text="Save", command=save_depreciation_schedule).pack(pady=20)),
+        ("close_button", lambda parent: tk.Button(parent, text="Close", command=parent.destroy).pack(pady=5)),
+    ]
+    window, widgets = WindowFactory.create_generic_window_with_widgets("General Depreciation Setup", "400x300", widget_creators)
 
-    save_button = tk.Button(window, text="Save", command=save_depreciation_schedule)
-    save_button.pack(pady=20)
-
-    close_button = tk.Button(window, text="Close", command=window.destroy)
-    close_button.pack(pady=5)
+    # Access widgets by their keys
+    percentage_entry = widgets["percentage_entry"]
+    years_entry = widgets["years_entry"]
+    method_description_entry = widgets["method_description_entry"]
 
     window.mainloop()
 

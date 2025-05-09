@@ -3,13 +3,13 @@ from tkinter import ttk
 from services.project_service import DatabaseService
 from db.database_service import DatabaseService
 from services.project_service import ProjectService
+from constants import year_range
 
 def display_project_window(project):
     """
     Display a project in an independent window.
     :param project: Dictionary containing project details.
     """
-    print("display_project_window function called")
     project_window = tk.Toplevel()
     project_window.title(f"Project: {project['project_id']}")
     project_window.geometry("400x400")
@@ -65,19 +65,15 @@ def display_project_window(project):
     ttk.Label(details_frame, text=project['description'], wraplength=300, justify=tk.LEFT).grid(row=4, column=1, sticky=tk.W, padx=5, pady=5)
 
     # Query investment schedule using DatabaseService
-    print(f"Initializing DatabaseService...")
     db_service = DatabaseService()
 
     if not project.get('project_id'):
-        print("Error: Project ID is missing or None.")
         return
 
-    print(f"Fetching investment schedule for project ID: {project['project_id']}")
     investments = db_service.get_investment_schedule(project['project_id'])
-    print(f"Investment schedule query executed. Results: {investments}")
 
-    # Ensure years up to 2040 are included
-    min_year, max_year = 2025, 2040
+    # Ensure years up to the maximum in year_range are included
+    min_year, max_year = year_range[0], year_range[-1]
     investments_dict = {investment["year"]: investment for investment in investments}
     investments = []
     for year in range(min_year, max_year + 1):
@@ -95,7 +91,6 @@ def display_project_window(project):
     ttk.Label(details_frame, text=depreciation_description).grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
 
     if investments:
-        print("Displaying investment schedule...")
         # Display investment schedule with years as columns
         ttk.Label(details_frame, text="Investment Schedule:", font=("Arial", 10, "bold")).grid(row=6, column=0, columnspan=len(investments) + 1, sticky=tk.W, padx=5, pady=5)
 
@@ -127,9 +122,7 @@ def display_project_window(project):
                 except ValueError:
                     updated_investments[year] = (0.0, None)
 
-            print(f"Saving updated investments for project ID {project['project_id']}: {updated_investments}")
             db_service.save_investment_details(project['project_id'], updated_investments)
-            print("Investments and depreciation start years updated successfully.")
 
         save_changes_button = ttk.Button(details_frame, text="Save Changes", command=save_changes)
         save_changes_button.grid(row=11, column=0, columnspan=len(investments) + 1, pady=10)

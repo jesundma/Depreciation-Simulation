@@ -3,6 +3,8 @@ from db.database_service import DatabaseService
 import pandas as pd
 import tkinter as tk
 from tkinter import filedialog
+from gui.status_window import StatusWindow
+from constants import year_range
 
 class ProjectService:
     @staticmethod
@@ -131,9 +133,9 @@ class ProjectService:
         # Convert percentage to a float for calculations
         depreciation_factor = float(depreciation_percentage) / 100
 
-        # Extend the DataFrame to include years up to 2040
+        # Extend the DataFrame to include years up to the maximum in year_range
         last_year = df["year"].max()
-        for year in range(last_year + 1, 2041):
+        for year in range(last_year + 1, year_range[-1] + 1):
             df = pd.concat([df, pd.DataFrame({"year": [year], "investment amount": [0.0], "depreciation start year": [False]})], ignore_index=True)
 
         # Initialize variables
@@ -206,8 +208,8 @@ class ProjectService:
         depreciation_years = method_details["depreciation_years"]
         print(f"[DEBUG] Depreciation Years for Project {project_id}: {depreciation_years}")
 
-        # Extend the DataFrame to include years up to 2040
-        min_year, max_year = df["year"].min(), 2040
+        # Extend the DataFrame to include years up to the maximum in year_range
+        min_year, max_year = df["year"].min(), year_range[-1]
         for year in range(min_year, max_year + 1):
             if year not in df["year"].values:
                 df = pd.concat([df, pd.DataFrame({"year": [year], "investment amount": [0.0], "depreciation start year": [False]})], ignore_index=True)
@@ -375,7 +377,13 @@ class ProjectService:
                 print("[INFO] No file selected.")
                 return
 
-            df = pd.read_excel(file_path)
+            try:
+                df = pd.read_excel(file_path)
+            except PermissionError:
+                from gui.window_factory import WindowFactory
+                warning_message = "The file is already open. Please close it and try again."
+                WindowFactory.create_status_window("File Access Warning", warning_message)
+                return
 
             print("[INFO] Project data from Excel:")
             print(df)
@@ -402,7 +410,13 @@ class ProjectService:
                 print("[INFO] No file selected.")
                 return
 
-            df = pd.read_excel(file_path)
+            try:
+                df = pd.read_excel(file_path)
+            except PermissionError:
+                from gui.window_factory import WindowFactory
+                warning_message = "The file is already open. Please close it and try again."
+                WindowFactory.create_status_window("File Access Warning", warning_message)
+                return
 
             # Convert importance and type to integers while reading
             df["importance"] = df["importance"].fillna(0).astype(int)
@@ -434,6 +448,14 @@ class ProjectService:
                 print("[INFO] No file selected.")
                 return
 
+            try:
+                df = pd.read_excel(file_path)
+            except PermissionError:
+                from gui.window_factory import WindowFactory
+                warning_message = "The file is already open. Please close it and try again."
+                WindowFactory.create_status_window("File Access Warning", warning_message)
+                return
+
             # Use the new create_dataframe_from_excel method to process the Excel file
             df = ProjectService.create_dataframe_from_excel(file_path)
 
@@ -462,6 +484,14 @@ class ProjectService:
 
             if not file_path:
                 print("[INFO] No file selected.")
+                return
+
+            try:
+                df = pd.read_excel(file_path)
+            except PermissionError:
+                from gui.window_factory import WindowFactory
+                warning_message = "The file is already open. Please close it and try again."
+                WindowFactory.create_status_window("File Access Warning", warning_message)
                 return
 
             df = ProjectService.create_dataframe_from_excel(file_path)
@@ -515,6 +545,7 @@ class ProjectService:
         :param df: A pandas DataFrame with columns: project_id, year, depreciation_years.
         """
         from db.database_service import DatabaseService
+        from psycopg2.extras import execute_values
         db_service = DatabaseService()
 
         # Ensure project_id is treated as a string
@@ -541,8 +572,14 @@ class ProjectService:
             except Exception as e:
                 print(f"[WARNING] Skipping row due to error: {e}")
 
-        # Save depreciation years in batch
-        db_service.save_depreciation_years_batch(depreciation_years_data)
+        # Batch insert depreciation years data
+        query = """
+            INSERT INTO depreciation_years (project_id, year, depreciation_value)
+            VALUES %s
+            ON CONFLICT (project_id, year) DO UPDATE
+            SET depreciation_value = EXCLUDED.depreciation_value;
+        """
+        execute_values(db_service.connection.cursor(), query, depreciation_years_data)
         print("[INFO] Depreciation years updated successfully in the investments table.")
 
     @staticmethod
@@ -555,6 +592,7 @@ class ProjectService:
         db_service = DatabaseService()
 
         # Deduplicate the project data by project_id
+        original_count = len(df)
         project_data = list({row['project_id']: (
             row['project_id'],
             row['branch'],
@@ -562,11 +600,28 @@ class ProjectService:
             row['description'],
             row['depreciation_method']
         ) for _, row in df.iterrows()}.values())
+        deduplicated_count = len(project_data)
 
-        # Save projects in a single batch
+        from gui.status_window import StatusWindow
+
+        status_messages = []
+
+        def log_status(message):
+            print(message)  # Keep the print for debugging purposes
+            status_messages.append(message)
+
+        log_status(f"[INFO] Attempting to save {original_count} projects in batch.")
+        if original_count > deduplicated_count:
+            log_status(f"[WARNING] {original_count - deduplicated_count} duplicate projects were found and removed based on project_id.")
+
         db_service.save_projects_batch(project_data)
+        log_status(f"[INFO] Successfully saved {deduplicated_count} projects in batch.")
+        log_status("[INFO] Projects created successfully from DataFrame in batches.")
 
-        print("[INFO] Projects created successfully from DataFrame in batches.")
+        # Replace open_status_window with StatusWindow
+        status_window = StatusWindow("Project Creation Status")
+        for message in status_messages:
+            status_window.text_area.insert(tk.END, message + "\n")
 
     @staticmethod
     def create_investments_from_dataframe(df: pd.DataFrame, chunk_size=100):
