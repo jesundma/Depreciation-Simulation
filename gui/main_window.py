@@ -207,7 +207,7 @@ def main_window():
 
     root.config(menu=menu_bar)
 
-    welcome_label = ttk.Label(root, text="Welcome to the Depreciation Manager", font=("Arial", 16))
+    welcome_label = ttk.Label(root, text="Welcome to the Pleasuredome", font=("Arial", 16))
     welcome_label.pack(pady=50)
 
     root.mainloop()

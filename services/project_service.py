@@ -348,17 +348,17 @@ class ProjectService:
         # Ensure investment_amount is numeric
         merged_data["investment_amount"] = pd.to_numeric(merged_data["investment_amount"], errors="coerce").fillna(0)
 
-        # Group by importance, branch, operations, and year, and calculate total investments
-        grouped_data = merged_data.groupby(["importance", "branch", "operations", "year"]).agg(
+        # Group by importance, branch, operations, project description, and year, and calculate total investments
+        grouped_data = merged_data.groupby(["importance", "branch", "operations", "description", "year"]).agg(
             Total_Investments=("investment_amount", "sum")
         ).reset_index()
 
         # Pivot the data to show years as columns
-        pivoted_data = grouped_data.pivot(index=["importance", "branch", "operations"], columns="year", values="Total_Investments").fillna(0)
+        pivoted_data = grouped_data.pivot(index=["importance", "branch", "operations", "description"], columns="year", values="Total_Investments").fillna(0)
 
         # Save the pivoted data to an Excel file
         pivoted_data.to_excel(output_file, sheet_name="Grouped by Importance", index=True)
-        print(f"[INFO] Grouped data by importance (with descriptions), branch, operations, and year saved to {output_file}")
+        print(f"[INFO] Grouped data by importance, branch, operations, project description, and year saved to {output_file}")
 
     @staticmethod
     def read_projects_from_excel():
