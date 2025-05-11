@@ -358,6 +358,12 @@ class ProjectService:
         # Pivot the data to show years as columns
         pivoted_data = grouped_data.pivot(index=["importance", "branch", "operations", "description"], columns="year", values="Total_Investments").fillna(0)
 
+        # Add a column for row totals
+        pivoted_data["Row_Total"] = pivoted_data.sum(axis=1)
+
+        # Sort by Row_Total within each group of importance and branch
+        pivoted_data = pivoted_data.sort_values(by=["importance", "branch", "Row_Total"], ascending=[True, True, False])
+
         # Save the pivoted data to an Excel file
         pivoted_data.to_excel(output_file, sheet_name="Grouped by Importance", index=True)
         print(f"[INFO] Grouped data by importance, branch, operations, project description, and year saved to {output_file}")
