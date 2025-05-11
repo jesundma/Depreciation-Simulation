@@ -701,3 +701,12 @@ class DatabaseService:
         except Exception as e:
             print(f"Database cleaning failed:\n{e}")
             raise
+
+    def clear_table(self, table_name: str):
+        """
+        Clears all data from the specified table, including dependent tables.
+        :param table_name: The name of the table to clear.
+        """
+        query = f"TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;"
+        self.execute_query(query)
+        print(f"[INFO] Table '{table_name}' and its dependencies have been cleared.")

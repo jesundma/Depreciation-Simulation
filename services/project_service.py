@@ -391,6 +391,10 @@ class ProjectService:
                 WindowFactory.create_status_window("File Access Warning", warning_message)
                 return
 
+            # Clear the table before inserting new data
+            db_service = DatabaseService()
+            db_service.clear_table("projects")
+
             print("[INFO] Project data from Excel:")
             print(df)
 
@@ -423,6 +427,10 @@ class ProjectService:
                 warning_message = "The file is already open. Please close it and try again."
                 WindowFactory.create_status_window("File Access Warning", warning_message)
                 return
+
+            # Clear the table before inserting new data
+            db_service = DatabaseService()
+            db_service.clear_table("project_classifications")
 
             # Convert importance and type to integers while reading
             df["importance"] = df["importance"].fillna(0).astype(int)
@@ -462,6 +470,10 @@ class ProjectService:
                 WindowFactory.create_status_window("File Access Warning", warning_message)
                 return
 
+            # Clear the table before inserting new data
+            db_service = DatabaseService()
+            db_service.clear_table("investments")
+
             # Use the new create_dataframe_from_excel method to process the Excel file
             df = ProjectService.create_dataframe_from_excel(file_path)
 
@@ -499,6 +511,10 @@ class ProjectService:
                 warning_message = "The file is already open. Please close it and try again."
                 WindowFactory.create_status_window("File Access Warning", warning_message)
                 return
+
+            # Clear the table before inserting new data
+            db_service = DatabaseService()
+            db_service.clear_table("depreciation_years")
 
             df = ProjectService.create_dataframe_from_excel(file_path)
 
