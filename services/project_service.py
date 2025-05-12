@@ -364,8 +364,20 @@ class ProjectService:
         # Sort by Row_Total within each group of importance and branch
         pivoted_data = pivoted_data.sort_values(by=["importance", "branch", "Row_Total"], ascending=[True, True, False])
 
-        # Save the pivoted data to an Excel file
-        pivoted_data.to_excel(output_file, sheet_name="Grouped by Importance", index=True)
+        # Create a writer to save multiple sheets
+        with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
+            # Save the main sheet
+            pivoted_data.to_excel(writer, sheet_name="Grouped by Importance", index=True)
+
+            # Create additional sheets for each importance group
+            for importance_group in pivoted_data.index.get_level_values("importance").unique():
+                # Sanitize the sheet name to remove invalid characters
+                sanitized_sheet_name = f"Importance {importance_group}".replace("/", "-").replace("\\", "-").replace(":", "-").replace("*", "-").replace("?", "").replace("[", "").replace("]", "").replace("Å", "A").replace("Ä", "A").replace("Ö", "O")
+                sanitized_sheet_name = sanitized_sheet_name[:31]  # Ensure the sheet name is less than 31 characters
+
+                group_data = pivoted_data.loc[importance_group]
+                group_data.to_excel(writer, sheet_name=sanitized_sheet_name, index=True)
+
         print(f"[INFO] Grouped data by importance, branch, operations, project description, and year saved to {output_file}")
 
     @staticmethod
