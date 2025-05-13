@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from models.project_model import Project
-from services.project_service import ProjectService
+from services.project_management_service import ProjectManagementService
 from db.database_service import DatabaseService
 
 def open_save_project_window(root):
@@ -29,7 +29,7 @@ def open_save_project_window(root):
         )
 
         try:
-            ProjectService.save_to_database(project)
+            ProjectManagementService.save_to_database(project)
             messagebox.showinfo("Data Saved", "Your project has been saved successfully.")
             close_window()
         except Exception as e:

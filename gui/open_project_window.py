@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import requests
 import os
-from services.project_service import ProjectService
+from services.project_management_service import ProjectManagementService
 from gui.project_window_template import display_project_window
 from db.database_service import DatabaseService
 
@@ -114,7 +114,7 @@ def open_open_project_window(root):
         else:
             # Fallback to local database access
             try:
-                results = ProjectService.search_projects(
+                results = ProjectManagementService.search_projects(
                     project_id=project_id,
                     branch=branch,
                     operations=operations,

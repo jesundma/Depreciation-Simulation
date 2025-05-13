@@ -13,8 +13,9 @@ FLASK_URL = os.getenv("FLASK_URL", "http://127.0.0.1:5000")
 # run.py
 from gui.main_window import main_window
 from flask import Flask, jsonify, request
-from services.project_service import ProjectService
+from services.project_management_service import ProjectManagementService
 from db.database_service import DatabaseService
+from models.project_model import Project
 
 app = Flask(__name__)
 
@@ -28,7 +29,7 @@ def create_project():
             operations=data['operations'],
             description=data['description']
         )
-        ProjectService.save_to_database(project)
+        ProjectManagementService.save_to_database(project)
         return jsonify({"message": "Project saved successfully."}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -36,7 +37,7 @@ def create_project():
 @app.route('/api/projects/<project_id>', methods=['GET'])
 def get_project(project_id):
     try:
-        project = ProjectService.load_from_database(project_id)
+        project = ProjectManagementService.load_from_database(project_id)
         if project:
             return jsonify(project.__dict__), 200
         else:

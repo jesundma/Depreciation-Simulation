@@ -581,30 +581,42 @@ class DatabaseService:
         Save multiple projects in the database in a single batch.
         :param projects: A list of tuples (project_id, branch, operations, description, depreciation_method).
         """
-        query = """
-            INSERT INTO projects (project_id, branch, operations, description, depreciation_method)
-            VALUES %s
-            ON CONFLICT (project_id) DO UPDATE
-            SET branch = EXCLUDED.branch,
-                operations = EXCLUDED.operations,
-                description = EXCLUDED.description,
-                depreciation_method = EXCLUDED.depreciation_method;
-        """
         try:
             # Log the number of projects being saved
             print(f"[INFO] Attempting to save {len(projects)} projects in batch.")
 
-            # Use psycopg2's execute_values for efficient batch inserts
+            # Extract project IDs from the incoming data
+            project_ids = [str(project[0]) for project in projects]  # Ensure all IDs are strings
+
+            # Use psycopg2's execute_values for efficient batch inserts/updates
             from psycopg2.extras import execute_values
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cur:
-                    execute_values(cur, query, projects)
+                    # Insert or update rows
+                    query_upsert = """
+                        INSERT INTO projects (project_id, branch, operations, description, depreciation_method)
+                        VALUES %s
+                        ON CONFLICT (project_id) DO UPDATE
+                        SET branch = EXCLUDED.branch,
+                            operations = EXCLUDED.operations,
+                            description = EXCLUDED.description,
+                            depreciation_method = EXCLUDED.depreciation_method;
+                    """
+                    execute_values(cur, query_upsert, projects)
+
+                    # Delete rows not in the incoming data
+                    query_delete = """
+                        DELETE FROM projects
+                        WHERE project_id NOT IN %s;
+                    """
+                    cur.execute(query_delete, (tuple(project_ids),))
+
                     conn.commit()
 
             # Log success
-            print(f"[INFO] Successfully saved {len(projects)} projects in batch.")
+            print(f"[INFO] Successfully saved {len(projects)} projects in batch and removed obsolete rows.")
         except Exception as e:
-            print(f"[ERROR] Failed to save projects batch: {e}")
+            print(f"[ERROR] Failed to save projects batch: {repr(e)}")
             raise
 
     def save_depreciation_years_batch(self, depreciation_years_data):

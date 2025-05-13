@@ -3,7 +3,10 @@ from tkinter import ttk
 from .save_project_window import open_save_project_window
 from .open_project_window import open_open_project_window
 from .setup_window import setup_database_window, setup_depreciation_window
-from services.project_service import ProjectService  # Import the ProjectService class
+from services.calculation_service import CalculationService
+from services.report_service import ReportService
+from services.import_service import ImportService
+from services.project_management_service import ProjectManagementService
 from constants import year_range
 import os
 import psycopg2
@@ -175,10 +178,6 @@ def main_window():
     investment_menu = tk.Menu(menu_bar, tearoff=0)
     investment_menu.add_command(label="Open Project", command=open_project)
     investment_menu.add_command(label="Create Project", command=save_project)
-    investment_menu.add_command(label="Read Projects from Excel", command=ProjectService.read_projects_from_excel)
-    investment_menu.add_command(label="Read Project Classifications from Excel", command=ProjectService.read_project_classifications_from_excel)
-    investment_menu.add_command(label="Read Investments from Excel", command=ProjectService.read_investments_from_excel)
-    investment_menu.add_command(label="Read Depreciation Years from Excel", command=ProjectService.read_depreciation_years_from_excel)
     menu_bar.add_cascade(label="Investment Projects", menu=investment_menu)
 
     # Add Setup and Maintenance menu
@@ -189,7 +188,7 @@ def main_window():
 
     # Add Depreciation Calculation menu
     depreciation_menu = tk.Menu(menu_bar, tearoff=0)
-    depreciation_menu.add_command(label="Calculate Depreciation", command=ProjectService.calculate_depreciation_for_all_projects)
+    depreciation_menu.add_command(label="Calculate Depreciation", command=CalculationService.calculate_depreciation_for_all_projects)
     depreciation_menu.add_command(label="Define Last Depreciation Calculation Year", command=define_last_depreciation_year)
     menu_bar.add_cascade(label="Depreciation Calculation", menu=depreciation_menu)
 
@@ -198,13 +197,20 @@ def main_window():
     
     reporting_menu.add_command(
         label="Create Investment Depreciation Report",
-        command=ProjectService.create_investment_depreciation_report
+        command=ReportService.create_investment_depreciation_report
     )
     reporting_menu.add_command(
         label="Group Projects by Importance",
-        command=ProjectService.group_projects_by_importance
+        command=ReportService.group_projects_by_importance
     )
     menu_bar.add_cascade(label="Reporting", menu=reporting_menu)
+
+    # Add Data Imports menu
+    data_imports_menu = tk.Menu(menu_bar, tearoff=0)
+    data_imports_menu.add_command(label="Import Projects", command=ImportService.create_projects_from_dataframe)
+    data_imports_menu.add_command(label="Import Classifications", command=ImportService.create_project_classifications_from_dataframe)
+    data_imports_menu.add_command(label="Import Investments", command=ImportService.create_investments_from_dataframe)
+    menu_bar.add_cascade(label="Data Imports", menu=data_imports_menu)
 
     root.config(menu=menu_bar)
 

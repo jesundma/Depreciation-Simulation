@@ -1,9 +1,9 @@
 import tkinter as tk
 from tkinter import ttk
-from services.project_service import DatabaseService
-from db.database_service import DatabaseService
-from services.project_service import ProjectService
+from services.calculation_service import CalculationService
+from services.project_management_service import ProjectManagementService
 from constants import year_range
+from db.database_service import DatabaseService
 
 def display_project_window(project):
     """
@@ -137,7 +137,7 @@ def display_project_window(project):
         calculate_depreciation_button = ttk.Button(
             details_frame,
             text=button_text,
-            command=lambda: ProjectService.handle_depreciation_calculation(project['project_id'])
+            command=lambda: CalculationService.handle_depreciation_calculation(project['project_id'])
         )
         calculate_depreciation_button.grid(row=13, column=0, columnspan=len(investments) + 1, pady=10)
 
