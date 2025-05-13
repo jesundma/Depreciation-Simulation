@@ -530,52 +530,6 @@ class DatabaseService:
         query = "SELECT * FROM projects"
         return self.execute_query(query, fetch=True)
 
-    def save_investments_batch(self, investments):
-        """
-        Save multiple investments in the database in a single batch.
-        :param investments: A list of tuples (project_id, year, investment_amount).
-        """
-        query = """
-            INSERT INTO investments (project_id, year, investment_amount)
-            VALUES %s
-            ON CONFLICT (project_id, year) DO UPDATE
-            SET investment_amount = EXCLUDED.investment_amount;
-        """
-        try:
-            # Use psycopg2's execute_values for efficient batch inserts
-            from psycopg2.extras import execute_values
-            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
-                with conn.cursor() as cur:
-                    print(f"[DEBUG] Attempting to save {len(investments)} investments in batch.")
-                    execute_values(cur, query, investments)
-                    conn.commit()
-                    print(f"[DEBUG] Successfully saved {len(investments)} investments in batch.")
-        except Exception as e:
-            print(f"[ERROR] Failed to save investments batch: {e}")
-            raise
-
-    def save_project_classifications(self, classifications):
-        """
-        Save or update project classifications in the database.
-        :param classifications: A list of tuples (project_id, importance, type).
-        """
-        query = """
-            INSERT INTO project_classifications (project_id, importance, type)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (project_id) DO UPDATE
-            SET importance = EXCLUDED.importance,
-                type = EXCLUDED.type;
-        """
-        for project_id, importance, classification_type in classifications:
-            
-            # Skip entries where importance or type is still not an integer
-            if not isinstance(importance, int) or not isinstance(classification_type, int):
-                print(f"[WARNING] Skipping classification for project {project_id}: Importance={importance}, Type={classification_type} (Invalid data)")
-                continue
-
-            params = (project_id, importance, classification_type)
-            self.execute_query(query, params)
-
     def save_projects_batch(self, projects):
         """
         Save multiple projects in the database in a single batch.
@@ -617,6 +571,87 @@ class DatabaseService:
             print(f"[INFO] Successfully saved {len(projects)} projects in batch and removed obsolete rows.")
         except Exception as e:
             print(f"[ERROR] Failed to save projects batch: {repr(e)}")
+            raise
+
+    def save_investments_batch(self, investments):
+        """
+        Save multiple investments in the database in a single batch.
+        :param investments: A list of tuples (project_id, year, investment_amount).
+        """
+        query = """
+            INSERT INTO investments (project_id, year, investment_amount)
+            VALUES %s
+            ON CONFLICT (project_id, year) DO UPDATE
+            SET investment_amount = EXCLUDED.investment_amount;
+        """
+        try:
+            # Log the number of investments being saved
+            print(f"[INFO] Attempting to save {len(investments)} investments in batch.")
+
+            # Extract project IDs from the incoming data
+            project_ids = [str(investment[0]) for investment in investments]  # Ensure all IDs are strings
+
+            # Use psycopg2's execute_values for efficient batch inserts
+            from psycopg2.extras import execute_values
+            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                with conn.cursor() as cur:
+                    # Insert or update rows
+                    execute_values(cur, query, investments)
+
+                    # Delete rows not in the incoming data
+                    query_delete = """
+                        DELETE FROM investments
+                        WHERE project_id::TEXT NOT IN %s;
+                    """
+                    cur.execute(query_delete, (tuple(project_ids),))
+
+                    conn.commit()
+
+            # Log success
+            print(f"[INFO] Successfully saved {len(investments)} investments in batch and removed obsolete rows.")
+        except Exception as e:
+            print(f"[ERROR] Failed to save investments batch: {repr(e)}")
+            raise
+
+    def save_project_classifications(self, classifications):
+        """
+        Save or update project classifications in the database.
+        :param classifications: A list of tuples (project_id, importance, type).
+        """
+        try:
+            # Log the number of classifications being saved
+            print(f"[INFO] Attempting to save {len(classifications)} project classifications in batch.")
+
+            # Extract project IDs from the incoming data
+            project_ids = [str(classification[0]) for classification in classifications]  # Ensure all IDs are strings
+
+            # Use psycopg2's execute_values for efficient batch inserts/updates
+            from psycopg2.extras import execute_values
+            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                with conn.cursor() as cur:
+                    # Insert or update rows
+                    query_upsert = """
+                        INSERT INTO project_classifications (project_id, importance, type)
+                        VALUES %s
+                        ON CONFLICT (project_id) DO UPDATE
+                        SET importance = EXCLUDED.importance,
+                            type = EXCLUDED.type;
+                    """
+                    execute_values(cur, query_upsert, classifications)
+
+                    # Delete rows not in the incoming data
+                    query_delete = """
+                        DELETE FROM project_classifications
+                        WHERE project_id::TEXT NOT IN %s;
+                    """
+                    cur.execute(query_delete, (tuple(project_ids),))
+
+                    conn.commit()
+
+            # Log success
+            print(f"[INFO] Successfully saved {len(classifications)} project classifications in batch and removed obsolete rows.")
+        except Exception as e:
+            print(f"[ERROR] Failed to save project classifications batch: {repr(e)}")
             raise
 
     def save_depreciation_years_batch(self, depreciation_years_data):
