@@ -81,7 +81,7 @@ class ImportService:
         ]
 
         db_service = DatabaseService()
-        db_service.save_project_classifications(classifications_data)
+        db_service.save_project_classifications_batch(classifications_data)
 
         print("[INFO] Project classifications have been successfully imported and saved to the database.")
 

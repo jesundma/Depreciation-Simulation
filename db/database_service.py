@@ -2,6 +2,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor, execute_values
 from dotenv import load_dotenv
 import os
+from gui.status_window import StatusWindow
 
 # Load environment variables
 load_dotenv()
@@ -536,8 +537,9 @@ class DatabaseService:
         :param projects: A list of tuples (project_id, branch, operations, description, depreciation_method).
         """
         try:
-            # Log the number of projects being saved
-            print(f"[INFO] Attempting to save {len(projects)} projects in batch.")
+            # Initialize StatusWindow dynamically
+            status_window = StatusWindow("Database Operations Status")
+            status_window.update_status(f"[INFO] Attempting to save {len(projects)} projects in batch.")
 
             # Extract project IDs from the incoming data
             project_ids = [str(project[0]) for project in projects]  # Ensure all IDs are strings
@@ -563,12 +565,13 @@ class DatabaseService:
                         DELETE FROM projects
                         WHERE project_id NOT IN %s;
                     """
+                    # Execute the DELETE query and get the number of rows removed
                     cur.execute(query_delete, (tuple(project_ids),))
-
+                    removed_rows = cur.rowcount
                     conn.commit()
 
-            # Log success
-            print(f"[INFO] Successfully saved {len(projects)} projects in batch and removed obsolete rows.")
+                    # Update the StatusWindow with the correct number of rows removed
+                    status_window.update_status(f"[INFO] Successfully saved {len(projects)} projects in batch and removed {removed_rows} obsolete rows.")
         except Exception as e:
             print(f"[ERROR] Failed to save projects batch: {repr(e)}")
             raise
@@ -585,8 +588,9 @@ class DatabaseService:
             SET investment_amount = EXCLUDED.investment_amount;
         """
         try:
-            # Log the number of investments being saved
-            print(f"[INFO] Attempting to save {len(investments)} investments in batch.")
+            # Initialize StatusWindow dynamically
+            status_window = StatusWindow("Database Operations Status")
+            status_window.update_status(f"[INFO] Attempting to save {len(investments)} investments in batch.")
 
             # Extract project IDs from the incoming data
             project_ids = [str(investment[0]) for investment in investments]  # Ensure all IDs are strings
@@ -598,17 +602,28 @@ class DatabaseService:
                     # Insert or update rows
                     execute_values(cur, query, investments)
 
-                    # Delete rows not in the incoming data
-                    query_delete = """
-                        DELETE FROM investments
-                        WHERE project_id::TEXT NOT IN %s;
-                    """
-                    cur.execute(query_delete, (tuple(project_ids),))
+                    # Ensure project_ids is not empty to avoid SQL syntax errors
+                    if project_ids:
+                        query_delete = """
+                            DELETE FROM investments
+                            WHERE project_id NOT IN %s;
+                        """
+                        # Execute the DELETE query and get the number of rows removed
+                        cur.execute(query_delete, (tuple(project_ids),))
+                        removed_rows = cur.rowcount
+                        conn.commit()
 
-                    conn.commit()
-
-            # Log success
-            print(f"[INFO] Successfully saved {len(investments)} investments in batch and removed obsolete rows.")
+                        # Update the StatusWindow with the correct number of rows removed
+                        status_window.update_status(f"[INFO] Successfully saved {len(investments)} investments in batch and removed {removed_rows} obsolete rows.")
+                    else:
+                        print("[WARNING] No project IDs provided. Skipping deletion of obsolete rows.")
+        except psycopg2.errors.ForeignKeyViolation as e:
+            # Initialize StatusWindow dynamically if not already initialized
+            status_window = StatusWindow("Database Operations Status")
+            if "investments_project_id_fkey" in str(e):
+                status_window.update_status("[ERROR] ForeignKeyViolation: Some project IDs in investments are missing in the projects table. Please run 'Import Projects' to resolve this issue.")
+            print(f"[ERROR] ForeignKeyViolation: {e}")
+            raise
         except Exception as e:
             print(f"[ERROR] Failed to save investments batch: {repr(e)}")
             raise
@@ -619,8 +634,9 @@ class DatabaseService:
         :param classifications: A list of tuples (project_id, importance, type).
         """
         try:
-            # Log the number of classifications being saved
-            print(f"[INFO] Attempting to save {len(classifications)} project classifications in batch.")
+            # Initialize StatusWindow dynamically
+            status_window = StatusWindow("Database Operations Status")
+            status_window.update_status(f"[INFO] Attempting to save {len(classifications)} project classifications in batch.")
 
             # Extract project IDs from the incoming data
             project_ids = [str(classification[0]) for classification in classifications]  # Ensure all IDs are strings
@@ -639,17 +655,20 @@ class DatabaseService:
                     """
                     execute_values(cur, query_upsert, classifications)
 
-                    # Delete rows not in the incoming data
-                    query_delete = """
-                        DELETE FROM project_classifications
-                        WHERE project_id::TEXT NOT IN %s;
-                    """
-                    cur.execute(query_delete, (tuple(project_ids),))
+                    # Ensure project_ids is not empty to avoid SQL syntax errors
+                    if project_ids:
+                        query_delete = """
+                            DELETE FROM project_classifications
+                            WHERE project_id NOT IN %s;
+                        """
+                        cur.execute(query_delete, (tuple(project_ids),))
+                    else:
+                        print("[WARNING] No project IDs provided. Skipping deletion of obsolete rows.")
 
                     conn.commit()
 
             # Log success
-            print(f"[INFO] Successfully saved {len(classifications)} project classifications in batch and removed obsolete rows.")
+            status_window.update_status(f"[INFO] Successfully saved {len(classifications)} project classifications in batch and removed obsolete rows.")
         except Exception as e:
             print(f"[ERROR] Failed to save project classifications batch: {repr(e)}")
             raise
@@ -693,8 +712,38 @@ class DatabaseService:
                 with conn.cursor() as cur:
                     print(f"[DEBUG] Attempting to save {len(classifications)} project classifications in batch.")
                     execute_values(cur, query, classifications)
-                    conn.commit()
+
+                    # Extract project IDs from the incoming data
+                    project_ids = [str(classification[0]) for classification in classifications]
+
+                    # Ensure project_ids is not empty to avoid SQL syntax errors
+                    if project_ids:
+                        query_delete = """
+                            DELETE FROM project_classifications
+                            WHERE project_id NOT IN %s;
+                        """
+                        # Execute the DELETE query and get the number of rows removed
+                        cur.execute(query_delete, (tuple(project_ids),))
+                        removed_rows = cur.rowcount
+                        conn.commit()
+
+                        # Initialize StatusWindow dynamically
+                        status_window = StatusWindow("Database Operations Status")
+
+                        # Update the StatusWindow with the correct number of rows removed
+                        status_window.update_status(f"[INFO] Successfully saved {len(classifications)} classifications in batch and removed {removed_rows} obsolete rows.")
+
+                    else:
+                        print("[WARNING] No project IDs provided. Skipping deletion of obsolete rows.")
+
                     print(f"[DEBUG] Successfully saved {len(classifications)} project classifications in batch.")
+        except psycopg2.errors.ForeignKeyViolation as e:
+            # Initialize StatusWindow dynamically if not already initialized
+            status_window = StatusWindow("Database Operations Status")
+            if "project_classifications_project_id_fkey" in str(e):
+                status_window.update_status("[ERROR] ForeignKeyViolation: Some project IDs in classifications are missing in the projects table. Please run 'Import Projects' to resolve this issue.")
+            print(f"[ERROR] ForeignKeyViolation: {e}")
+            raise
         except Exception as e:
             print(f"[ERROR] Failed to save project classifications batch: {e}")
             raise
