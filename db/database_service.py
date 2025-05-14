@@ -806,3 +806,37 @@ class DatabaseService:
         query = f"TRUNCATE TABLE {table_name} RESTART IDENTITY CASCADE;"
         self.execute_query(query)
         print(f"[INFO] Table '{table_name}' and its dependencies have been cleared.")
+
+    def fetch_grouped_project_data(self):
+        """
+        Fetch and group project data by importance, type, branch, operations, and year.
+        :return: A list of dictionaries containing grouped project data.
+        """
+        query = """
+            SELECT 
+                pc.importance,
+                pc.type,
+                p.branch,
+                p.operations,
+                p.project_id,
+                i.year,
+                SUM(i.investment_amount) AS total_investment,
+                cd.description AS importance_description,
+                tc.description AS type_description,
+                p.description AS project_description
+            FROM 
+                project_classifications pc
+            JOIN 
+                projects p ON pc.project_id = p.project_id
+            JOIN 
+                investments i ON p.project_id = i.project_id
+            LEFT JOIN 
+                classification_descriptions cd ON pc.importance = cd.classification_id
+            LEFT JOIN 
+                type_classification tc ON pc.type = tc.type_id
+            GROUP BY 
+                pc.importance, pc.type, p.branch, p.operations, p.project_id, i.year, cd.description, tc.description, p.description
+            ORDER BY 
+                pc.importance, pc.type, p.branch, p.operations, p.project_id, i.year;
+        """
+        return self.execute_query(query, fetch=True)
