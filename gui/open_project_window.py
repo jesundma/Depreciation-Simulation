@@ -5,6 +5,7 @@ import os
 from services.project_management_service import ProjectManagementService
 from gui.project_window_template import display_project_window
 from db.database_service import DatabaseService
+from gui.window_factory import WindowFactory
 
 FLASK_URL = os.getenv("FLASK_URL", "http://127.0.0.1:5000")
 
@@ -14,76 +15,31 @@ def open_open_project_window(root):
         root.attributes('-disabled', False)
 
     def display_results_in_new_window(results):
-        # Create a new window for displaying results
-        results_window = tk.Toplevel(popup)
-        results_window.title("Search Results")
+        # Map depreciation method IDs to their descriptions
+        db_service = DatabaseService()
+        depreciation_methods = db_service.fetch_depreciation_methods()
+        for result in results:
+            result['depreciation_method'] = depreciation_methods.get(result['depreciation_method'], 'Unknown')
 
-        # Adjust the window size dynamically based on the number of results
-        num_rows = len(results)
-        window_height = min(400, 50 + num_rows * 30)  # Adjust height dynamically
-        results_window.geometry(f"600x{window_height}")
-
-        # Add a canvas and scrollbar for dynamic scrolling
-        canvas = tk.Canvas(results_window)
-        scrollbar_y = ttk.Scrollbar(results_window, orient=tk.VERTICAL, command=canvas.yview)
-        scrollbar_x = ttk.Scrollbar(results_window, orient=tk.HORIZONTAL, command=canvas.xview)
-        scrollable_frame = ttk.Frame(canvas)
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
-            )
+        results_window = WindowFactory.create_generic_window(
+            title="Search Results",
+            geometry="600x400",
+            widgets=[
+                lambda parent: ttk.Label(parent, text="Search Results", font=("Arial", 14)).pack(pady=10),
+                lambda parent: ttk.Treeview(parent, columns=("Column1", "Column2"), show="headings").pack(expand=True, fill="both")
+            ]
         )
-
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
-
-        scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
-        scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
-        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
-        # Fetch depreciation methods for mapping
-        database_service = DatabaseService()
-        depreciation_methods = database_service.fetch_depreciation_methods()
-
-        # Add a new column header for Depreciation Method
-        headers = ["", "Project ID", "Branch", "Operations", "Description", "Depreciation Method"]
-        for col, header in enumerate(headers):
-            ttk.Label(scrollable_frame, text=header, font=("Arial", 10, "bold")).grid(row=0, column=col, padx=5, pady=5)
-
-        # Display rows of results with depreciation method descriptions
-        if not results:
-            ttk.Label(scrollable_frame, text="No results found.", font=("Arial", 10, "italic"), foreground="red").grid(row=1, column=0, columnspan=len(headers) + 2, pady=10)
-        else:
-            checkboxes = []
-
-            for row, project in enumerate(results, start=1):
-                var = tk.BooleanVar()
-                checkbox = ttk.Checkbutton(scrollable_frame, variable=var)
-                checkbox.grid(row=row, column=0, padx=5, pady=5)
-                checkboxes.append((var, project))
-
-                ttk.Label(scrollable_frame, text=project['project_id']).grid(row=row, column=1, padx=5, pady=5)
-                ttk.Label(scrollable_frame, text=project['branch']).grid(row=row, column=2, padx=5, pady=5)
-                ttk.Label(scrollable_frame, text=project['operations']).grid(row=row, column=3, padx=5, pady=5)
-                ttk.Label(scrollable_frame, text=project['description']).grid(row=row, column=4, padx=5, pady=5)
-
-                # Map and display the depreciation method description
-                depreciation_description = depreciation_methods.get(project['depreciation_method'], "Unknown")
-                ttk.Label(scrollable_frame, text=depreciation_description).grid(row=row, column=5, padx=5, pady=5)
-
-            def open_selected_projects():
-                selected_projects = [project for var, project in checkboxes if var.get()]
-                if selected_projects:
-                    for project in selected_projects:
-                        print(f"Calling display_project_window with project: {project}")
-                        display_project_window(project)
-                else:
-                    print("No projects selected.")
-
-            open_button = ttk.Button(results_window, text="Open Selected", command=open_selected_projects)
-            open_button.pack(pady=10)
+        
+        # Populate the Treeview with search results
+        treeview = results_window.children['!treeview']  # Assuming the Treeview is the only one in the window
+        treeview['columns'] = list(results[0].keys())  # Set columns based on result keys
+        for col in treeview['columns']:
+            treeview.heading(col, text=col)
+            treeview.column(col, width=100, anchor='center')
+        for result in results:
+            treeview.insert('', 'end', values=list(result.values()))
+        
+        return results_window
 
     def is_server_running():
         return False  # Default to desktop database connection if Flask is not running
