@@ -39,6 +39,16 @@ def open_open_project_window(root):
         for result in results:
             treeview.insert('', 'end', values=list(result.values()))
         
+        # Add double-click functionality to open a project
+        def on_project_select(event):
+            selected_item = treeview.selection()
+            if selected_item:
+                project_data = treeview.item(selected_item, 'values')
+                project_dict = {key: value for key, value in zip(treeview['columns'], project_data)}
+                display_project_window(project_dict)
+
+        treeview.bind('<Double-1>', on_project_select)
+        
         return results_window
 
     def is_server_running():

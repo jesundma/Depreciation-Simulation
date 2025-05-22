@@ -200,7 +200,7 @@ def main_window():
         command=ReportService.create_investment_depreciation_report
     )
     reporting_menu.add_command(
-        label="Group Projects by Importance",
+        label="Group Projects by Importance and Type",
         command=ReportService.group_projects_by_importance
     )
     menu_bar.add_cascade(label="Reporting", menu=reporting_menu)
@@ -210,6 +210,7 @@ def main_window():
     data_imports_menu.add_command(label="Import Projects", command=ImportService.create_projects_from_dataframe)
     data_imports_menu.add_command(label="Import Classifications", command=ImportService.create_project_classifications_from_dataframe)
     data_imports_menu.add_command(label="Import Investments", command=ImportService.create_investments_from_dataframe)
+    data_imports_menu.add_command(label="Import Depreciation Starts", command=ImportService.create_depreciation_starts_from_dataframe)
     menu_bar.add_cascade(label="Data Imports", menu=data_imports_menu)
 
     root.config(menu=menu_bar)

@@ -6,6 +6,49 @@ from constants import year_range
 from db.database_service import DatabaseService
 from gui.window_factory import WindowFactory
 
+def fetch_investment_schedule(project_id):
+    """Fetch and prepare the investment schedule for a project."""
+    db_service = DatabaseService()
+    investments = db_service.get_investment_schedule(project_id)
+
+    # Ensure years up to the maximum in year_range are included
+    min_year, max_year = year_range[0], year_range[-1]
+    investments_dict = {investment["year"]: investment for investment in investments}
+    investments = []
+    for year in range(min_year, max_year + 1):
+        if year in investments_dict:
+            investments.append(investments_dict[year])
+        else:
+            investments.append({"year": year, "investment_amount": 0.0, "depreciation_start_year": None})
+
+    return investments
+
+def create_investment_widgets(parent, investments):
+    """Create widgets for displaying and editing the investment schedule."""
+    ttk.Label(parent, text="Investment Schedule:", font=("Arial", 10, "bold")).grid(row=6, column=0, columnspan=len(investments) + 1, sticky=tk.W, padx=5, pady=5)
+
+    # Add year headers as columns
+    ttk.Label(parent, text="Year", font=("Arial", 10, "bold")).grid(row=7, column=0, padx=5, pady=5)
+    for idx, investment in enumerate(investments):
+        ttk.Label(parent, text=f"{investment['year']}", font=("Arial", 10, "bold")).grid(row=7, column=idx + 1, padx=5, pady=5)
+
+    # Add investment amounts dynamically
+    ttk.Label(parent, text="Investment Amount", font=("Arial", 10, "bold")).grid(row=8, column=0, padx=5, pady=5)
+    investment_entries = []
+    investment_checkboxes = []
+    for idx, investment in enumerate(investments):
+        entry = ttk.Entry(parent)
+        entry.insert(0, str(investment["investment_amount"]))
+        entry.grid(row=8, column=idx + 1, padx=5, pady=5)
+        investment_entries.append((investment["year"], entry))
+
+        var = tk.BooleanVar(value=bool(investment["depreciation_start_year"]))
+        checkbox = ttk.Checkbutton(parent, variable=var)
+        checkbox.grid(row=9, column=idx + 1, padx=5, pady=5)
+        investment_checkboxes.append((investment["year"], var))
+
+    return investment_entries, investment_checkboxes
+
 def display_project_window(project):
     """
     Display a project in an independent window using WindowFactory.
@@ -27,25 +70,14 @@ def display_project_window(project):
         ttk.Label(parent, text="Description:", font=("Arial", 10, "bold")).grid(row=4, column=0, sticky=tk.W, padx=5, pady=5)
         ttk.Label(parent, text=project['description'], wraplength=300, justify=tk.LEFT).grid(row=4, column=1, sticky=tk.W, padx=5, pady=5)
 
-        # Query investment schedule using DatabaseService
-        db_service = DatabaseService()
-
+        # Query investment schedule using helper function
         if not project.get('project_id'):
             return
 
-        investments = db_service.get_investment_schedule(project['project_id'])
-
-        # Ensure years up to the maximum in year_range are included
-        min_year, max_year = year_range[0], year_range[-1]
-        investments_dict = {investment["year"]: investment for investment in investments}
-        investments = []
-        for year in range(min_year, max_year + 1):
-            if year in investments_dict:
-                investments.append(investments_dict[year])
-            else:
-                investments.append({"year": year, "investment_amount": 0.0, "depreciation_start_year": None})
+        investments = fetch_investment_schedule(project['project_id'])
 
         # Fetch the depreciation method description
+        db_service = DatabaseService()
         depreciation_methods = db_service.fetch_depreciation_methods()
         depreciation_description = depreciation_methods.get(project['depreciation_method'], "Unknown")
 
@@ -54,28 +86,8 @@ def display_project_window(project):
         ttk.Label(parent, text=depreciation_description).grid(row=5, column=1, sticky=tk.W, padx=5, pady=5)
 
         if investments:
-            # Display investment schedule with years as columns
-            ttk.Label(parent, text="Investment Schedule:", font=("Arial", 10, "bold")).grid(row=6, column=0, columnspan=len(investments) + 1, sticky=tk.W, padx=5, pady=5)
-
-            # Add year headers as columns
-            ttk.Label(parent, text="Year", font=("Arial", 10, "bold")).grid(row=7, column=0, padx=5, pady=5)
-            for idx, investment in enumerate(investments):
-                ttk.Label(parent, text=f"{investment['year']}", font=("Arial", 10, "bold")).grid(row=7, column=idx + 1, padx=5, pady=5)
-
-            # Add investment amounts dynamically
-            ttk.Label(parent, text="Investment Amount", font=("Arial", 10, "bold")).grid(row=8, column=0, padx=5, pady=5)
-            investment_entries = []
-            investment_checkboxes = []
-            for idx, investment in enumerate(investments):
-                entry = ttk.Entry(parent)
-                entry.insert(0, str(investment["investment_amount"]))
-                entry.grid(row=8, column=idx + 1, padx=5, pady=5)
-                investment_entries.append((investment["year"], entry))
-
-                var = tk.BooleanVar(value=bool(investment["depreciation_start_year"]))
-                checkbox = ttk.Checkbutton(parent, variable=var)
-                checkbox.grid(row=9, column=idx + 1, padx=5, pady=5)
-                investment_checkboxes.append((investment["year"], var))
+            # Create investment widgets using helper function
+            investment_entries, investment_checkboxes = create_investment_widgets(parent, investments)
 
             def save_changes():
                 updated_investments = {}

@@ -141,4 +141,51 @@ class ImportService:
         if df is None:
             return
         db_service = DatabaseService()
-        # ...existing code for reading depreciation years...
+
+    @staticmethod
+    def create_depreciation_starts_from_dataframe():
+        """
+        Import depreciation start data from an Excel file.
+        Reads a DataFrame with columns: project_id (text), start_year (semicolon-separated string of years), start_month (int, optional).
+        Each year in start_year is treated as a separate entry for the project.
+        If start_month is missing or NaN, it is replaced by 1.
+        """
+        df = ImportService.read_excel_to_dataframe(
+            title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
+        )
+        if df is None:
+            return
+        # Normalize column names
+        df.columns = [str(col).strip().lower() for col in df.columns]
+        # Ensure required columns exist
+        required_columns = ["project_id", "start_year"]
+        for col in required_columns:
+            if col not in df.columns:
+                print(f"[ERROR] Missing required column: {col}")
+                return
+        # If start_month is missing, add it and fill with 1
+        if "start_month" not in df.columns:
+            df["start_month"] = 1
+        else:
+            df["start_month"] = df["start_month"].fillna(1).astype(int)
+        # Prepare data for insertion, splitting start_year by ';' and creating a new row for each year
+        expanded_rows = []
+        for _, row in df.iterrows():
+            project_id = str(row["project_id"])
+            start_month = int(row["start_month"])
+            years = str(row["start_year"]).split(';')
+            for year in years:
+                year = year.strip()
+                if year.isdigit():
+                    expanded_rows.append({
+                        "project_id": project_id,
+                        "start_year": int(year),
+                        "start_month": start_month
+                    })
+        expanded_df = pd.DataFrame(expanded_rows)
+        print("[INFO] Expanded depreciation starts DataFrame:")
+        print(expanded_df)
+        # TODO: Insert expanded_df into the appropriate database table
+        # db_service = DatabaseService()
+        # db_service.save_depreciation_starts_batch(expanded_df.to_records(index=False))
+        print("[INFO] Depreciation starts import completed (database insert not yet implemented).")
