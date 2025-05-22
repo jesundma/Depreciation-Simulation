@@ -1,5 +1,6 @@
 from db.database_service import DatabaseService
 from models.project_model import Project
+from typing import Optional
 
 class ProjectManagementService:
     @staticmethod
@@ -9,21 +10,23 @@ class ProjectManagementService:
         """
         db_service = DatabaseService()
         db_service.save_project(project)
-
     @staticmethod
-    def load_from_database(project_id: str) -> Project:
+    def load_from_database(project_id: str) -> Optional[Project]:
         """
         Load a project from the database.
         """
         db_service = DatabaseService()
         project_data = db_service.load_project(project_id)
         if project_data:
+            # If project_data is a tuple, access by index; adjust indices as needed
             return Project(
-                project_id=project_data['project_id'],
-                branch=project_data['branch'],
-                operations=project_data['operations'],
-                description=project_data['description']
+                project_id=project_data[0],
+                branch=project_data[1],
+                operations=project_data[2],
+                description=project_data[3],
+                depreciation_method=project_data[4]
             )
+        return None
         return None
 
     @staticmethod

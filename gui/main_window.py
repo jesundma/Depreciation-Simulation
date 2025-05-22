@@ -130,7 +130,7 @@ def open_generate_report_window():
     def generate_report():
         try:
             selected_year = int(year_combobox.get())
-            ProjectService.generate_report(transform=True, last_year=selected_year)
+            ReportService.create_investment_depreciation_report()
             report_window.destroy()
         except ValueError:
             error_label.config(text="Please select a valid year.")
@@ -142,9 +142,9 @@ def open_generate_report_window():
     tk.Label(report_window, text="Select the last year for the report:", font=("Arial", 12)).pack(pady=10)
 
     # Update the dropdown for year selection to use year_range from constants
-    year_combobox = ttk.Combobox(report_window, values=year_range, font=("Arial", 12))
+    year_combobox = ttk.Combobox(report_window, values=[str(y) for y in year_range], font=("Arial", 12))
     year_combobox.pack(pady=5)
-    year_combobox.set(year_range[0])  # Default to the first year in the range
+    year_combobox.set(str(year_range[0]))  # Default to the first year in the range
 
     error_label = tk.Label(report_window, text="", font=("Arial", 10), fg="red")
     error_label.pack()

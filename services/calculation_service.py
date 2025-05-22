@@ -53,9 +53,10 @@ class CalculationService:
         """
         db_service = DatabaseService()
         method_details = db_service.get_depreciation_method_details(project_id)
-        if method_details['depreciation_percentage'] is not None:
+        # Assuming method_details is a tuple: (depreciation_percentage, depreciation_years)
+        if method_details is not None and len(method_details) > 0 and method_details[0] is not None:
             return "percentage"
-        elif method_details['depreciation_years'] is not None:
+        elif method_details is not None and len(method_details) > 1 and method_details[1] is not None:
             return "years"
         else:
             raise ValueError("Invalid depreciation method configuration.")

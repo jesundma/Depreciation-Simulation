@@ -1,6 +1,7 @@
 from db.database_service import DatabaseService
 import pandas as pd
 import openpyxl
+from openpyxl.styles import PatternFill
 
 class ReportService:
     @staticmethod
@@ -88,9 +89,8 @@ class ReportService:
             workbook = writer.book
             for sheet_name in writer.sheets:
                 worksheet = writer.sheets[sheet_name]
-
-                blue_fill = openpyxl.styles.PatternFill(start_color='DDEBF7', end_color='DDEBF7', fill_type='solid')
-                white_fill = openpyxl.styles.PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
+                blue_fill = PatternFill(start_color='DDEBF7', end_color='DDEBF7', fill_type='solid')
+                white_fill = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
 
                 for row_idx, row in enumerate(worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column), start=1):
                     fill = blue_fill if row_idx % 2 == 0 else white_fill
