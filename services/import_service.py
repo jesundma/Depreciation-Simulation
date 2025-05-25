@@ -146,9 +146,10 @@ class ImportService:
     def create_depreciation_starts_from_dataframe():
         """
         Import depreciation start data from an Excel file.
-        Reads a DataFrame with columns: project_id (text), start_year (semicolon-separated string of years), start_month (int, optional).
+        Reads a DataFrame with columns: project_id (text), start_year (semicolon-separated string of years), start_month (semicolon-separated string of months, optional).
         Each year in start_year is treated as a separate entry for the project.
-        If start_month is missing or NaN, it is replaced by 1.
+        If start_month is missing, empty, or mismatched, defaults to 1.
+        If both columns have equal number of values, pair them. If months has one value, use for all years. Otherwise, default all months to 1.
         """
         df = ImportService.read_excel_to_dataframe(
             title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
@@ -163,29 +164,54 @@ class ImportService:
             if col not in df.columns:
                 print(f"[ERROR] Missing required column: {col}")
                 return
-        # If start_month is missing, add it and fill with 1
-        if "start_month" not in df.columns:
-            df["start_month"] = 1
-        else:
-            df["start_month"] = df["start_month"].fillna(1).astype(int)
-        # Prepare data for insertion, splitting start_year by ';' and creating a new row for each year
         expanded_rows = []
         for _, row in df.iterrows():
             project_id = str(row["project_id"])
-            start_month = int(row["start_month"])
-            years = str(row["start_year"]).split(';')
-            for year in years:
-                year = year.strip()
-                if year.isdigit():
+            years = [y.strip() for y in str(row["start_year"]).split(';') if y.strip()]
+            # Handle start_month: can be missing, empty, or semicolon-separated
+            if "start_month" not in df.columns or pd.isna(row["start_month"]) or str(row["start_month"]).strip() == "":
+                months = ["1"] * len(years)
+            else:
+                months_raw = str(row["start_month"]).strip()
+                months = [m.strip() for m in months_raw.split(';') if m.strip()]
+                if len(months) == len(years):
+                    pass  # pair by index
+                elif len(months) == 1:
+                    months = months * len(years)
+                else:
+                    months = ["1"] * len(years)
+            for year, month in zip(years, months):
+                if year.isdigit() and month.isdigit():
                     expanded_rows.append({
                         "project_id": project_id,
                         "start_year": int(year),
-                        "start_month": start_month
+                        "start_month": int(month)
                     })
         expanded_df = pd.DataFrame(expanded_rows)
         print("[INFO] Expanded depreciation starts DataFrame:")
         print(expanded_df)
-        # TODO: Insert expanded_df into the appropriate database table
-        # db_service = DatabaseService()
-        # db_service.save_depreciation_starts_batch(expanded_df.to_records(index=False))
-        print("[INFO] Depreciation starts import completed (database insert not yet implemented).")
+        # Insert expanded_df into the appropriate database table
+        db_service = DatabaseService()
+        # Get all valid project_ids from the database
+        valid_project_ids = set(db_service.get_all_project_ids())
+        # Filter out rows with missing project_ids and warn
+        missing_projects = set(row["project_id"] for _, row in expanded_df.iterrows() if row["project_id"] not in valid_project_ids)
+        if missing_projects:
+            print(f"[WARNING] The following project_ids are missing from the projects table and will be skipped: {sorted(missing_projects)}")
+            import sys
+            sys.stdout.flush()
+            try:
+                from gui.status_window import StatusWindow
+                StatusWindow("Import Warning").update_status(f"[WARNING] The following project_ids are missing from the projects table and will be skipped: {sorted(missing_projects)}")
+            except Exception as e:
+                print(f"[WARNING] Could not update status window: {e}")
+        filtered_df = expanded_df[expanded_df["project_id"].isin(valid_project_ids)]
+        # Convert DataFrame to list of tuples (project_id, start_year, start_month)
+        depreciation_starts = [
+            (row["project_id"], row["start_year"], row["start_month"]) for _, row in filtered_df.iterrows()
+        ]
+        if depreciation_starts:
+            db_service.save_depreciation_starts_batch(depreciation_starts)
+            print("[INFO] Depreciation starts import completed and saved to database.")
+        else:
+            print("[INFO] No valid depreciation starts to insert.")

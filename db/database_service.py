@@ -840,3 +840,45 @@ class DatabaseService:
                 pc.importance, pc.type, p.branch, p.operations, p.project_id, i.year;
         """
         return self.execute_query(query, fetch=True)
+
+    def save_depreciation_starts_batch(self, depreciation_starts):
+        """
+        Save multiple depreciation start years and months in the investment_depreciation_periods table in a single batch.
+        Removes rows for (project_id, start_year) pairs not present in the new data.
+        :param depreciation_starts: A list of tuples (project_id, start_year, start_month).
+        """
+        query_upsert = """
+            INSERT INTO investment_depreciation_periods (project_id, start_year, start_month)
+            VALUES %s
+            ON CONFLICT (project_id, start_year) DO UPDATE
+            SET start_month = EXCLUDED.start_month;
+        """
+        try:
+            status_window = StatusWindow("Database Operations Status")
+            status_window.update_status(f"[INFO] Attempting to save {len(depreciation_starts)} depreciation starts in batch.")
+
+            from psycopg2.extras import execute_values
+            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                with conn.cursor() as cur:
+                    execute_values(cur, query_upsert, depreciation_starts)
+
+                    # Prepare set of (project_id, start_year) pairs to keep
+                    keep_pairs = [(str(t[0]), int(t[1])) for t in depreciation_starts]
+                    if keep_pairs:
+                        # Build the ROW constructor string and parameters
+                        row_placeholders = ', '.join(['ROW(%s, %s)'] * len(keep_pairs))
+                        flat_params = [item for pair in keep_pairs for item in pair]
+                        delete_query = f"""
+                            DELETE FROM investment_depreciation_periods
+                            WHERE (project_id, start_year) NOT IN ({row_placeholders});
+                        """
+                        cur.execute(delete_query, flat_params)
+                        removed_rows = cur.rowcount
+                    else:
+                        removed_rows = 0
+                    conn.commit()
+
+            status_window.update_status(f"[INFO] Successfully saved {len(depreciation_starts)} depreciation starts in batch and removed {removed_rows} obsolete rows.")
+        except Exception as e:
+            print(f"[ERROR] Failed to save depreciation starts batch: {e}")
+            raise
