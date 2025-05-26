@@ -67,6 +67,6 @@ class CalculationService:
         Fetch and preprocess investment data for a project.
         """
         db_service = DatabaseService()
-        investment_data = db_service.get_investment_data(project_id)
+        investment_data = db_service.get_investment_schedule(project_id)
         # ...existing code for preprocessing investment data...
         return pd.DataFrame(investment_data)

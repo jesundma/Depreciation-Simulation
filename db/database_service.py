@@ -128,19 +128,6 @@ class DatabaseService:
         params = (project_id, project_id)
         return self.execute_query(query, params, fetch=True)
 
-    def get_investment_data(self, project_id: str):
-        """
-        Fetch investment data for a given project.
-        :param project_id: The ID of the project.
-        :return: A list of investment data rows.
-        """
-        query = """
-        SELECT year, investment_amount, start_year
-        FROM investment_depreciation_periods
-        WHERE project_id = %s
-        """
-        return self.execute_query(query, params=(project_id,), fetch=True)
-
     def save_project(self, project):
         """
         Save or update a project in the database.
