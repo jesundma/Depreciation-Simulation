@@ -11,20 +11,47 @@ def fetch_investment_schedule(project_id):
     db_service = DatabaseService()
     investments = db_service.get_investment_schedule(project_id)
 
+    # Handle cases where investments might be None
+    if not investments:
+        investments = []
+
+    # Debug: Print investments data to inspect structure
+    print("[DEBUG] Investments data:", investments)
+
+    # Process investments by year, allowing multiple investments per year
+    investments_dict = {}
+    for investment in investments:
+        if isinstance(investment, dict):
+            year = investment.get("year", 0)
+            if year not in investments_dict:
+                investments_dict[year] = {
+                    "year": year,
+                    "investment_amount": 0.0,
+                    "start_year": investment.get("start_year")
+                }
+            # Accumulate investment amounts for the same year
+            investments_dict[year]["investment_amount"] += float(investment.get("investment_amount", 0.0))
+
     # Ensure years up to the maximum in year_range are included
     min_year, max_year = year_range[0], year_range[-1]
-    investments_dict = {investment["year"]: investment for investment in investments}
     investments = []
     for year in range(min_year, max_year + 1):
         if year in investments_dict:
             investments.append(investments_dict[year])
         else:
-            investments.append({"year": year, "investment_amount": 0.0, "depreciation_start_year": None})
+            investments.append({"year": year, "investment_amount": 0.0, "start_year": None})
 
     return investments
 
 def create_investment_widgets(parent, investments):
     """Create widgets for displaying and editing the investment schedule."""
+    # Ensure investments is a valid list
+    if not investments or not isinstance(investments, list):
+        investments = []
+
+    # Debug: Trace the source of investments
+    print("[DEBUG] Received investments:", investments)
+
     ttk.Label(parent, text="Investment Schedule:", font=("Arial", 10, "bold")).grid(row=6, column=0, columnspan=len(investments) + 1, sticky=tk.W, padx=5, pady=5)
 
     # Add year headers as columns
@@ -42,7 +69,7 @@ def create_investment_widgets(parent, investments):
         entry.grid(row=8, column=idx + 1, padx=5, pady=5)
         investment_entries.append((investment["year"], entry))
 
-        var = tk.BooleanVar(value=bool(investment["depreciation_start_year"]))
+        var = tk.BooleanVar(value=bool(investment.get("start_year", False)))
         checkbox = ttk.Checkbutton(parent, variable=var)
         checkbox.grid(row=9, column=idx + 1, padx=5, pady=5)
         investment_checkboxes.append((investment["year"], var))

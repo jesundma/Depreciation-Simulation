@@ -30,8 +30,13 @@ class DatabaseService:
                     cur.execute(query, params)
                     if fetch:
                         results = cur.fetchall()
+                        # Add debug statements to inspect query results
+                        print(f"Query results type: {type(results)}")
                         print(f"Query results: {results}")
-                        return results
+                        if results:
+                            return results
+                        else:
+                            return []
                     conn.commit()
         except psycopg2.InterfaceError as e:
             print(f"[ERROR] Database connection issue: {e}")
@@ -45,7 +50,7 @@ class DatabaseService:
         Set up the database by creating new tables only if they do not already exist.
         """
         try:
-            conn = psycopg2.connect(self.db_url)
+            conn = psycopg2.connect(self.db_url, cursor_factory=RealDictCursor)
             cur = conn.cursor()
 
             # Create tables only if they do not already exist
@@ -109,8 +114,18 @@ class DatabaseService:
         :param project_id: The ID of the project.
         :return: A list of investments with year, amount, and depreciation start year.
         """
-        query = "SELECT year, investment_amount, depreciation_start_year FROM investments WHERE project_id = %s ORDER BY year"
-        params = (project_id,)
+        query = """
+        SELECT 
+            COALESCE(idp.start_year, i.year) AS year, 
+            i.investment_amount, 
+            idp.start_year AS start_year
+        FROM investment_depreciation_periods idp
+        FULL OUTER JOIN investments i
+        ON idp.project_id = i.project_id AND idp.start_year = i.year
+        WHERE idp.project_id = %s OR i.project_id = %s
+        ORDER BY year
+        """
+        params = (project_id, project_id)
         return self.execute_query(query, params, fetch=True)
 
     def get_investment_data(self, project_id: str):
@@ -120,8 +135,8 @@ class DatabaseService:
         :return: A list of investment data rows.
         """
         query = """
-        SELECT year, investment_amount, depreciation_start_year
-        FROM investments
+        SELECT year, investment_amount, start_year
+        FROM investment_depreciation_periods
         WHERE project_id = %s
         """
         return self.execute_query(query, params=(project_id,), fetch=True)
@@ -253,9 +268,14 @@ class DatabaseService:
         params = (depreciation_percentage, depreciation_years)
         result = self.execute_query(check_query, params, fetch=True)
 
-        if result:
+        # Update logic to handle query results as tuples
+        if result and isinstance(result, list) and len(result) > 0:
+            depreciation_id = result[0][0]  # Access the first element of the tuple
+        else:
+            depreciation_id = None
+
+        if depreciation_id:
             # Update existing record
-            depreciation_id = result[0]['depreciation_id']
             update_query = """
                 UPDATE depreciation_schedules
                 SET depreciation_percentage = %s,
@@ -372,7 +392,11 @@ class DatabaseService:
             query = "SELECT depreciation_id, method_description FROM depreciation_schedules"
             results = self.execute_query(query, fetch=True)
             # Convert the list of dictionaries to a dictionary with depreciation_id as key and method_description as value
-            return {row['depreciation_id']: row['method_description'] for row in results}
+            # Ensure results are iterable before using comprehensions
+            if results and isinstance(results, list):
+                return {row[0]: row[1] for row in results}  # Access tuple elements by index
+            else:
+                return {}
         except Exception as e:
             print(f"Error fetching depreciation methods: {e}")
             return {}
@@ -386,8 +410,21 @@ class DatabaseService:
         query = "SELECT EXISTS (SELECT 1 FROM calculated_depreciations WHERE project_id = %s AND remaining_value IS NOT NULL)"
         params = (project_id,)
         result = self.execute_query(query, params, fetch=True)
-        return result[0]['exists'] if result else False
 
+        # Debug: Print the query result to inspect its structure
+        print("[DEBUG] Query result for has_calculated_depreciations:", result)
+
+        # Handle cases where results might be None or unexpected
+        if result and isinstance(result, list) and len(result) > 0:
+            # Check if the result is a RealDictRow and access the 'exists' key
+            if isinstance(result[0], dict) and 'exists' in result[0]:
+                return bool(result[0]['exists'])
+            elif isinstance(result[0], tuple):
+                return bool(result[0][0])  # Fallback for tuple-based results
+    
+        # If no valid result is found, return False without treating it as an error
+        print("[INFO] No calculated depreciations found or unexpected result structure.")
+        return False
     def get_depreciation_method_details(self, project_id):
         """
         Fetch the depreciation method details (percentage and years) for a given project ID.
@@ -459,15 +496,15 @@ class DatabaseService:
         :return: A list of dictionaries containing year, investment amount, and depreciation value.
         """
         query = """
-            SELECT year, 
+            SELECT start_year AS year, 
                    COALESCE(SUM(investment_amount), 0) AS investment_amount,
                    COALESCE(SUM(depreciation_value), 0) AS depreciation_value
             FROM (
-                SELECT year, investment_amount, NULL AS depreciation_value
-                FROM investments
+                SELECT start_year AS year, investment_amount, NULL AS depreciation_value
+                FROM investment_depreciation_periods
                 WHERE project_id = %s
                 UNION ALL
-                SELECT year, NULL AS investment_amount, depreciation_value
+                SELECT start_year AS year, NULL AS investment_amount, depreciation_value
                 FROM calculated_depreciations
                 WHERE project_id = %s
             ) AS combined
@@ -513,13 +550,13 @@ class DatabaseService:
                    COALESCE(SUM(depreciation_value), 0) AS depreciation_value
             FROM (
                 SELECT project_id, year, investment_amount, NULL AS depreciation_value
-                FROM investments
+                FROM investment_depreciation_periods
                 UNION ALL
                 SELECT project_id, year, NULL AS investment_amount, depreciation_value
                 FROM calculated_depreciations
             ) AS combined
             GROUP BY project_id, year
-            ORDER BY project_id, year;
+            ORDER BY year;
         """
         return self.execute_query(query, fetch=True)
 
@@ -605,7 +642,7 @@ class DatabaseService:
                     # Ensure project_ids is not empty to avoid SQL syntax errors
                     if project_ids:
                         query_delete = """
-                            DELETE FROM investments
+                            DELETE FROM investment_depreciation_periods
                             WHERE project_id NOT IN %s;
                         """
                         # Execute the DELETE query and get the number of rows removed
@@ -755,7 +792,11 @@ class DatabaseService:
         """
         query = "SELECT project_id FROM projects"
         results = self.execute_query(query, fetch=True)
-        return [row['project_id'] for row in results]
+        # Ensure results are iterable before using comprehensions
+        if results and isinstance(results, list):
+            return [row[0] for row in results]  # Access the first element of each tuple
+        else:
+            return []
 
     def get_project_classifications(self):
         """
@@ -771,7 +812,7 @@ class DatabaseService:
         """
         try:
             print("Opening database connection...")
-            conn = psycopg2.connect(self.db_url)
+            conn = psycopg2.connect(self.db_url, cursor_factory=RealDictCursor)
             cur = conn.cursor()
 
             print("Clearing all tables...")
