@@ -74,7 +74,19 @@ def create_investment_widgets(parent, investments):
         checkbox.grid(row=9, column=idx + 1, padx=5, pady=5)
         investment_checkboxes.append((investment["year"], var))
 
-    return investment_entries, investment_checkboxes
+    # Add a new row of boxes for depreciation months
+    ttk.Label(parent, text="Depreciation Month", font=("Arial", 10, "bold")).grid(row=10, column=0, padx=5, pady=5)
+    depreciation_month_entries = []
+    for idx, investment in enumerate(investments):
+        month_entry = ttk.Entry(parent, width=5)  # Set width to half the current size
+        month_entry.insert(0, "")  # Default empty value
+        month_entry.grid(row=10, column=idx + 1, padx=5, pady=5)
+        depreciation_month_entries.append((investment["year"], month_entry))
+
+    # Add a title for tick marks
+    ttk.Label(parent, text="Depreciation Years", font=("Arial", 10, "bold")).grid(row=9, column=0, padx=5, pady=5)
+
+    return investment_entries, investment_checkboxes, depreciation_month_entries
 
 def display_project_window(project):
     """
@@ -114,15 +126,18 @@ def display_project_window(project):
 
         if investments:
             # Create investment widgets using helper function
-            investment_entries, investment_checkboxes = create_investment_widgets(parent, investments)
+            investment_entries, investment_checkboxes, depreciation_month_entries = create_investment_widgets(parent, investments)
 
             def save_changes():
                 updated_investments = {}
-                for (year, entry), (_, var) in zip(investment_entries, investment_checkboxes):
+                for (year, entry), (_, var), (_, month_entry) in zip(investment_entries, investment_checkboxes, depreciation_month_entries):
                     try:
-                        updated_investments[year] = (float(entry.get()), year if var.get() else None)
+                        investment_amount = float(entry.get())
+                        start_year = year if var.get() else None
+                        start_month = int(month_entry.get()) if month_entry.get().isdigit() else None
+                        updated_investments[year] = (investment_amount, start_year, start_month)
                     except ValueError:
-                        updated_investments[year] = (0.0, None)
+                        updated_investments[year] = (0.0, None, None)
 
                 db_service.save_investment_details(project['project_id'], updated_investments)
 
