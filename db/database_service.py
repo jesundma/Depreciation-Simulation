@@ -556,21 +556,45 @@ class DatabaseService:
     def save_projects_batch(self, projects):
         """
         Save multiple projects in the database in a single batch.
+        When importing, remove all rows from investments, investment_depreciation_periods, and calculated_depreciations
+        that have obsolete project_ids (not present in the new projects list) BEFORE updating the projects table.
         :param projects: A list of tuples (project_id, branch, operations, description, depreciation_method).
         """
         try:
-            # Initialize StatusWindow dynamically
             status_window = StatusWindow("Database Operations Status")
             status_window.update_status(f"[INFO] Attempting to save {len(projects)} projects in batch.")
 
-            # Extract project IDs from the incoming data
+            # Extract new project IDs from the incoming data
             project_ids = [str(project[0]) for project in projects]  # Ensure all IDs are strings
 
-            # Use psycopg2's execute_values for efficient batch inserts/updates
-            from psycopg2.extras import execute_values
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cur:
-                    # Insert or update rows
+                    # Remove obsolete project_ids from dependent tables first
+                    if project_ids:
+                        placeholders = ','.join(['%s'] * len(project_ids))
+                        removed_rows_by_table = {}
+                        for table in ["investments", "investment_depreciation_periods", "calculated_depreciations"]:
+                            delete_query = f"""
+                                DELETE FROM {table}
+                                WHERE project_id NOT IN ({placeholders});
+                            """
+                            cur.execute(delete_query, project_ids)
+                            removed_rows_by_table[table] = cur.rowcount
+                        # Now also remove obsolete project_ids from projects table itself
+                        delete_projects_query = f"""
+                            DELETE FROM projects
+                            WHERE project_id NOT IN ({placeholders});
+                        """
+                        cur.execute(delete_projects_query, project_ids)
+                        removed_rows_by_table['projects'] = cur.rowcount
+                    conn.commit()
+
+                    # Report number of rows removed by table to status_window
+                    for table, count in removed_rows_by_table.items():
+                        status_window.update_status(f"[INFO] Removed {count} obsolete rows from {table} table.")
+
+                    # Now upsert projects
+                    from psycopg2.extras import execute_values
                     query_upsert = """
                         INSERT INTO projects (project_id, branch, operations, description, depreciation_method)
                         VALUES %s
@@ -581,19 +605,9 @@ class DatabaseService:
                             depreciation_method = EXCLUDED.depreciation_method;
                     """
                     execute_values(cur, query_upsert, projects)
-
-                    # Delete rows not in the incoming data
-                    query_delete = """
-                        DELETE FROM projects
-                        WHERE project_id NOT IN %s;
-                    """
-                    # Execute the DELETE query and get the number of rows removed
-                    cur.execute(query_delete, (tuple(project_ids),))
-                    removed_rows = cur.rowcount
                     conn.commit()
 
-                    # Update the StatusWindow with the correct number of rows removed
-                    status_window.update_status(f"[INFO] Successfully saved {len(projects)} projects in batch and removed {removed_rows} obsolete rows.")
+            status_window.update_status(f"[INFO] Successfully saved {len(projects)} projects in batch. Obsolete project data was removed from dependent tables.")
         except Exception as e:
             print(f"[ERROR] Failed to save projects batch: {repr(e)}")
             raise
