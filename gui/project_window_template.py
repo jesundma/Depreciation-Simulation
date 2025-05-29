@@ -130,15 +130,27 @@ def display_project_window(project):
 
             def save_changes():
                 updated_investments = {}
+                error_found = False
+                error_years = []
                 for (year, entry), (_, var), (_, month_entry) in zip(investment_entries, investment_checkboxes, depreciation_month_entries):
                     try:
                         investment_amount = float(entry.get())
-                        start_year = year if var.get() else None
-                        start_month = int(month_entry.get()) if month_entry.get().isdigit() else None
+                        year_selected = var.get()
+                        month_value = month_entry.get().strip()
+                        # Validation: If either is set, both must be set
+                        if (year_selected and not month_value) or (not year_selected and month_value):
+                            error_found = True
+                            error_years.append(str(year))
+                        start_year = year if year_selected else None
+                        start_month = int(month_value) if month_value.isdigit() else None
                         updated_investments[year] = (investment_amount, start_year, start_month)
                     except ValueError:
                         updated_investments[year] = (0.0, None, None)
-
+                if error_found:
+                    from gui.status_window import StatusWindow
+                    msg = f"Both depreciation year and month must be provided for the same year. Problem in years: {', '.join(error_years)}."
+                    StatusWindow("Input Error").update_status(msg)
+                    return
                 db_service.save_investment_details(project['project_id'], updated_investments)
 
             save_changes_button = ttk.Button(parent, text="Save Changes", command=save_changes)
