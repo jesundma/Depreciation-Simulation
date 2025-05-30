@@ -90,7 +90,11 @@ def open_open_project_window(root):
             except Exception as e:
                 print(f"Error accessing local database: {e}")
 
-    root.attributes('-disabled', True)
+    try:
+        root.attributes('-disabled', True)
+    except tk.TclError:
+        # Attribute not supported in this environment (e.g., Xvfb/noVNC)
+        pass
     popup = tk.Toplevel(root)
     popup.title("Open Project")
     popup.geometry("600x500")  # Increased window size to fit all elements

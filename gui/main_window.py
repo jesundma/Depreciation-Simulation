@@ -18,9 +18,22 @@ load_dotenv()
 # Global variable for the last depreciation calculation year, changed in the future
 last_depreciation_year = None
 
+def is_headless():
+    display = os.environ.get("DISPLAY", "")
+    return display.startswith(":") and not os.environ.get("WINDOWID")
+
+def get_database_url():
+    """
+    Returns the appropriate DATABASE_URL depending on environment.
+    Uses DATABASE_URL_NOVNC if in headless/noVNC, else DATABASE_URL.
+    """
+    if is_headless():
+        return os.getenv("DATABASE_URL_NOVNC") or os.getenv("DATABASE_URL")
+    return os.getenv("DATABASE_URL")
+
 def connect_to_db():
     try:
-        db_url = os.getenv("DATABASE_URL")
+        db_url = get_database_url()
 
         if not db_url:
             raise ValueError("DATABASE_URL is not set in environment variables.")
@@ -60,7 +73,7 @@ def open_database_status_window():
         status_window.update_idletasks()
 
     try:
-        db_url = os.getenv("DATABASE_URL")
+        db_url = get_database_url()
 
         if not db_url:
             raise ValueError("DATABASE_URL is not set in environment variables.")
@@ -164,8 +177,19 @@ def main_window():
 
     root = tk.Tk()
     root.title("Main Menu")
-    root.geometry("400x400")
-    root.state('zoomed')
+
+    # Portable window settings for headless (noVNC/Xvfb) vs. desktop
+    if is_headless():
+        root.geometry("800x600")
+        try:
+            root.state('normal')
+        except tk.TclError:
+            pass
+    else:
+        try:
+            root.state('zoomed')
+        except tk.TclError:
+            root.geometry("1024x768")
 
     menu_bar = tk.Menu(root)
 

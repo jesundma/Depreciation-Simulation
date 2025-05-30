@@ -177,22 +177,6 @@ class DatabaseService:
                 start_year_month_params = (project_id, start_year, start_month)
                 self.execute_query(start_year_month_query, start_year_month_params)
 
-    def save_yearly_investments(self, project_id, investments):
-        """
-        Save yearly investments for a given project ID without requiring depreciation_start_year.
-        :param project_id: The ID of the project.
-        :param investments: A dictionary where the key is the year and the value is the investment amount.
-        """
-        query = """
-            INSERT INTO investments (project_id, year, investment_amount)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (project_id, year) DO UPDATE
-            SET investment_amount = EXCLUDED.investment_amount;
-        """
-        for year, amount in investments.items():
-            params = (project_id, year, amount)
-            self.execute_query(query, params)
-
     def save_depreciation_start_years(self, project_id, depreciation_start_years):
         """
         Save depreciation start years for a given project ID.
