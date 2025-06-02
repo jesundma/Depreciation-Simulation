@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depreciation Simulation Web</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        h1 { margin-bottom: 30px; }
+        .import-buttons { display: flex; flex-direction: column; gap: 15px; max-width: 350px; }
+        button { padding: 12px 20px; font-size: 1rem; border-radius: 5px; border: 1px solid #888; background: #f5f5f5; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #e0e0e0; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to Depreciation Simulation Web</h1>
+    <p>This is the Flask web frontend. Functionality will be added to match the desktop app.</p>
+    <div class="import-buttons">
+        <form id="import-projects-form" action="/import-projects" method="post" enctype="multipart/form-data">
+            <input id="import-projects-file" type="file" name="file" accept=".xlsx,.xls" required style="display:none;">
+            <button type="button" id="import-projects-btn">Import Projects</button>
+        </form>
+        <form action="/import-classifications" method="post" enctype="multipart/form-data">
+            <button type="submit">Import Classifications</button>
+        </form>
+        <form action="/import-investments" method="post" enctype="multipart/form-data">
+            <button type="submit">Import Investments</button>
+        </form>
+        <form action="/import-depreciation-starts" method="post" enctype="multipart/form-data">
+            <button type="submit">Import Depreciation Starts</button>
+        </form>
+    </div>
+    <script>
+        const importBtn = document.getElementById('import-projects-btn');
+        const fileInput = document.getElementById('import-projects-file');
+        const form = document.getElementById('import-projects-form');
+        importBtn.addEventListener('click', function() {
+            fileInput.click();
+        });
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files.length > 0) {
+                form.submit();
+            }
+        });
+    </script>
+</body>
+</html>

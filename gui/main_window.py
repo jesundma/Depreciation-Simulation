@@ -11,6 +11,7 @@ from constants import year_range
 import os
 import psycopg2
 from dotenv import load_dotenv
+from gui.create_projects_from_dataframe_gui import create_projects_from_dataframe_gui
 
 # Load environment variables
 load_dotenv()
@@ -231,7 +232,7 @@ def main_window():
 
     # Add Data Imports menu
     data_imports_menu = tk.Menu(menu_bar, tearoff=0)
-    data_imports_menu.add_command(label="Import Projects", command=ImportService.create_projects_from_dataframe)
+    data_imports_menu.add_command(label="Import Projects", command=create_projects_from_dataframe_gui)
     data_imports_menu.add_command(label="Import Classifications", command=ImportService.create_project_classifications_from_dataframe)
     data_imports_menu.add_command(label="Import Investments", command=ImportService.create_investments_from_dataframe)
     data_imports_menu.add_command(label="Import Depreciation Starts", command=ImportService.create_depreciation_starts_from_dataframe)

@@ -24,56 +24,33 @@ class ImportService:
         return df
 
     @staticmethod
-    def create_projects_from_dataframe():
+    def create_projects_from_dataframe(filepath=None, df=None):
         """
         Read and save project data from an Excel file to the 'projects' table.
-        Shows a warning that obsolete projects and associated data will be deleted, and asks for confirmation.
+        Accepts either a file path (filepath) or a pandas DataFrame (df).
+        This function is backend-agnostic and can be used by both desktop and web frontends.
         """
-        from gui.status_window import StatusWindow
-        import tkinter as tk
-
-        # Confirmation callback
-        def proceed_with_import():
-            status_window.window.destroy()  # Close the warning window
-            df = ImportService.read_excel_to_dataframe(
-                title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
+        if df is None:
+            if filepath is None:
+                raise ValueError("Either 'filepath' or 'df' must be provided.")
+            df = pd.read_excel(filepath)
+        # Convert numeric column names to strings
+        df.columns = [str(col).strip() for col in df.columns]
+        project_columns = ["project_id", "branch", "operations", "description", "depreciation_method"]
+        projects_df = df[project_columns].drop_duplicates(subset="project_id")
+        projects_data = [
+            (
+                row["project_id"],
+                row["branch"],
+                row["operations"],
+                row["description"],
+                row["depreciation_method"]
             )
-            if df is None:
-                return
-            print(df.head)
-            project_columns = ["project_id", "branch", "operations", "description", "depreciation_method"]
-            projects_df = df[project_columns].drop_duplicates(subset="project_id")
-            projects_data = [
-                (
-                    row["project_id"],
-                    row["branch"],
-                    row["operations"],
-                    row["description"],
-                    row["depreciation_method"]
-                )
-                for _, row in projects_df.iterrows()
-            ]
-            db_service = DatabaseService()
-            db_service.save_projects_batch(projects_data)
-            print("[INFO] Projects have been successfully imported and saved to the database.")
-
-        def cancel_import():
-            status_window.window.destroy()
-            print("[INFO] Project import cancelled by user.")
-
-        # Show warning window
-        status_window = StatusWindow("Warning: Import Projects")
-        status_window.update_status(
-            "[WARNING] Importing projects will delete all obsolete projects and all data associated with them (including investments, classifications, etc.).\n\nDo you want to continue?"
-        )
-        # Add YES/NO buttons
-        yes_button = tk.Button(status_window.window, text="YES", command=proceed_with_import, width=10, bg="red", fg="white")
-        yes_button.pack(pady=(10, 5))
-        no_button = tk.Button(status_window.window, text="NO", command=cancel_import, width=10)
-        no_button.pack(pady=(0, 10))
-        # Prevent further execution until user responds
-        status_window.window.grab_set()
-        status_window.window.wait_window()
+            for _, row in projects_df.iterrows()
+        ]
+        db_service = DatabaseService()
+        db_service.save_projects_batch(projects_data)
+        print("[INFO] Projects have been successfully imported and saved to the database.")
 
     @staticmethod
     def create_project_classifications_from_dataframe():

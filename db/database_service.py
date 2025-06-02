@@ -492,16 +492,17 @@ class DatabaseService:
         query = "SELECT * FROM projects"
         return self.execute_query(query, fetch=True)
 
-    def save_projects_batch(self, projects):
+    def save_projects_batch(self, projects, status_callback=None):
         """
         Save multiple projects in the database in a single batch.
         When importing, remove all rows from investments, investment_depreciation_periods, and calculated_depreciations
         that have obsolete project_ids (not present in the new projects list) BEFORE updating the projects table.
         :param projects: A list of tuples (project_id, branch, operations, description, depreciation_method).
+        :param status_callback: Optional callback for status updates (for GUI use only).
         """
         try:
-            status_window = StatusWindow("Database Operations Status")
-            status_window.update_status(f"[INFO] Attempting to save {len(projects)} projects in batch.")
+            if status_callback:
+                status_callback(f"[INFO] Attempting to save {len(projects)} projects in batch.")
 
             # Extract new project IDs from the incoming data
             project_ids = [str(project[0]) for project in projects]  # Ensure all IDs are strings
@@ -512,7 +513,8 @@ class DatabaseService:
                     if project_ids:
                         placeholders = ','.join(['%s'] * len(project_ids))
                         removed_rows_by_table = {}
-                        for table in ["investments", "investment_depreciation_periods", "calculated_depreciations"]:
+                        # Delete from all dependent tables first, including project_classifications
+                        for table in ["investments", "investment_depreciation_periods", "calculated_depreciations", "project_classifications"]:
                             delete_query = f"""
                                 DELETE FROM {table}
                                 WHERE project_id NOT IN ({placeholders});
@@ -528,9 +530,10 @@ class DatabaseService:
                         removed_rows_by_table['projects'] = cur.rowcount
                     conn.commit()
 
-                    # Report number of rows removed by table to status_window
-                    for table, count in removed_rows_by_table.items():
-                        status_window.update_status(f"[INFO] Removed {count} obsolete rows from {table} table.")
+                    # Report number of rows removed by table to status_callback
+                    if status_callback:
+                        for table, count in removed_rows_by_table.items():
+                            status_callback(f"[INFO] Removed {count} obsolete rows from {table} table.")
 
                     # Now upsert projects
                     from psycopg2.extras import execute_values
@@ -546,7 +549,8 @@ class DatabaseService:
                     execute_values(cur, query_upsert, projects)
                     conn.commit()
 
-            status_window.update_status(f"[INFO] Successfully saved {len(projects)} projects in batch. Obsolete project data was removed from dependent tables.")
+            if status_callback:
+                status_callback(f"[INFO] Successfully saved {len(projects)} projects in batch. Obsolete project data was removed from dependent tables.")
         except Exception as e:
             print(f"[ERROR] Failed to save projects batch: {repr(e)}")
             raise
