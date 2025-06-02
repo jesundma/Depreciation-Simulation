@@ -1,4 +1,8 @@
 Data content:
+1) Add CC to Projects table and make necessary changes to db and GUI functions.
 
 
-Functionalities
+Functionalities:
+1) Create percentage depreciation method using start month and year
+2) Create year depreciation method using start month and year
+3) clean all functions in services and db for tkinter specific content so that functions are general functions for desktop and web UI
