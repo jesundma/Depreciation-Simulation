@@ -177,51 +177,6 @@ class DatabaseService:
                 start_year_month_params = (project_id, start_year, start_month)
                 self.execute_query(start_year_month_query, start_year_month_params)
 
-    def save_depreciation_start_years(self, project_id, depreciation_start_years):
-        """
-        Save depreciation start years for a given project ID.
-        :param project_id: The ID of the project.
-        :param depreciation_start_years: A dictionary mapping years to depreciation start years.
-        """
-        query = """
-            UPDATE investments
-            SET depreciation_start_year = %s
-            WHERE project_id = %s AND year = %s;
-        """
-        for year, start_year in depreciation_start_years.items():
-            params = (start_year, project_id, year)
-            self.execute_query(query, params)
-
-    def save_depreciation_year(self, project_id, year, depreciation_year):
-        """
-        Save a single depreciation year to the investments table.
-        :param project_id: The ID of the project.
-        :param year: The year of the investment.
-        :param depreciation_year: The depreciation year to save.
-        """
-        query = """
-            UPDATE investments
-            SET depreciation_start_year = %s
-            WHERE project_id = %s AND year = %s;
-        """
-        params = (depreciation_year, project_id, year)
-        self.execute_query(query, params)
-
-    def save_depreciation_start_year(self, project_id, year, depreciation_year):
-        """
-        Save or update the depreciation start year for a specific project and year in the investments table.
-        :param project_id: The ID of the project.
-        :param year: The year of the investment.
-        :param depreciation_year: The depreciation start year to save.
-        """
-        query = """
-            UPDATE investments
-            SET depreciation_start_year = %s
-            WHERE project_id = %s AND year = %s;
-        """
-        params = (depreciation_year, project_id, year)
-        self.execute_query(query, params)
-
     def save_depreciation_schedule(self, depreciation_percentage, depreciation_years, method_description):
         """
         Save or update a general depreciation schedule in the database.
