@@ -16,10 +16,11 @@
     <h1>Welcome to Depreciation Simulation Web</h1>
     <p>This is the Flask web frontend. Functionality will be added to match the desktop app.</p>
     <div class="import-buttons">
-        <form id="import-projects-form" action="/import-projects" method="post" enctype="multipart/form-data">
+        <form id="import-projects-form" enctype="multipart/form-data">
             <input id="import-projects-file" type="file" name="file" accept=".xlsx,.xls" required style="display:none;">
             <button type="button" id="import-projects-btn">Import Projects</button>
         </form>
+        <div id="import-status" style="margin-top:20px;"></div>
         <form action="/import-classifications" method="post" enctype="multipart/form-data">
             <button type="submit">Import Classifications</button>
         </form>
@@ -34,12 +35,31 @@
         const importBtn = document.getElementById('import-projects-btn');
         const fileInput = document.getElementById('import-projects-file');
         const form = document.getElementById('import-projects-form');
+        const statusDiv = document.getElementById('import-status');
         importBtn.addEventListener('click', function() {
             fileInput.click();
         });
         fileInput.addEventListener('change', function() {
             if (fileInput.files.length > 0) {
-                form.submit();
+                const formData = new FormData(form);
+                statusDiv.innerHTML = 'Importing...';
+                fetch('/import-projects', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    statusDiv.innerHTML = data.messages.map(m => `<div>${m}</div>`).join('');
+                    if (!data.success) {
+                        statusDiv.style.color = 'red';
+                    } else {
+                        statusDiv.style.color = 'green';
+                    }
+                })
+                .catch(err => {
+                    statusDiv.innerHTML = 'An error occurred.';
+                    statusDiv.style.color = 'red';
+                });
             }
         });
     </script>

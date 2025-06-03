@@ -3,6 +3,7 @@ from psycopg2.extras import RealDictCursor, execute_values
 from dotenv import load_dotenv
 import os
 from gui.status_window import StatusWindow
+from collections import Counter
 
 # Load environment variables
 load_dotenv()
@@ -506,6 +507,33 @@ class DatabaseService:
 
             # Extract new project IDs from the incoming data
             project_ids = [str(project[0]) for project in projects]  # Ensure all IDs are strings
+            print(f"Incoming project count: {len(project_ids)}")
+            print(f"Unique project_ids: {len(set(project_ids))}")
+            duplicates = [pid for pid, count in Counter(project_ids).items() if count > 1]
+            print(f"Duplicate IDs: {duplicates}")
+
+            # --- Sanitize project tuples to replace pd.NA, np.nan, etc. with None ---
+            try:
+                import pandas as pd
+            except ImportError:
+                pd = None
+            try:
+                import numpy as np
+            except ImportError:
+                np = None
+
+            def sanitize_value(val):
+                if pd is not None and pd.isna(val):
+                    return None
+                if np is not None and isinstance(val, float) and np.isnan(val):
+                    return None
+                return val
+
+            sanitized_projects = [
+                tuple(sanitize_value(v) for v in project)
+                for project in projects
+            ]
+            # --- End sanitization ---
 
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cur:
@@ -546,7 +574,7 @@ class DatabaseService:
                             description = EXCLUDED.description,
                             depreciation_method = EXCLUDED.depreciation_method;
                     """
-                    execute_values(cur, query_upsert, projects)
+                    execute_values(cur, query_upsert, sanitized_projects)
                     conn.commit()
 
             if status_callback:

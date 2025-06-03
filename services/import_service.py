@@ -15,8 +15,8 @@ class ImportService:
         if not file_path:
             print("[INFO] No file selected.")
             return None
-        # Read the Excel file and handle mixed header types
-        df = pd.read_excel(file_path, header=0)
+        # Always read project_id as string (object)
+        df = pd.read_excel(file_path, header=0, dtype={"project_id": str})
 
         # Convert numeric column names to strings
         df.columns = [str(col).strip() for col in df.columns]
@@ -24,18 +24,26 @@ class ImportService:
         return df
 
     @staticmethod
-    def create_projects_from_dataframe(filepath=None, df=None):
+    def create_projects_from_dataframe(filepath=None, df=None, status_callback=None):
         """
         Read and save project data from an Excel file to the 'projects' table.
         Accepts either a file path (filepath) or a pandas DataFrame (df).
         This function is backend-agnostic and can be used by both desktop and web frontends.
+        :param status_callback: Optional function to receive status messages (for web or GUI feedback).
         """
         if df is None:
             if filepath is None:
                 raise ValueError("Either 'filepath' or 'df' must be provided.")
-            df = pd.read_excel(filepath)
-        # Convert numeric column names to strings
-        df.columns = [str(col).strip() for col in df.columns]
+            # Always read project_id as string (object)
+            df = pd.read_excel(filepath, dtype={"project_id": str})
+        # Debug: Print DataFrame dtypes and head for troubleshooting
+        print("[DEBUG] DataFrame dtypes before DB insert:\n", df.dtypes)
+        print("[DEBUG] DataFrame head:\n", df.head())
+        # Ensure project_id is string, depreciation_method is int (if not null), others as needed
+        df["project_id"] = df["project_id"].astype(str)
+        if "depreciation_method" in df.columns:
+            df["depreciation_method"] = pd.to_numeric(df["depreciation_method"], errors="coerce").astype('Int64')
+
         project_columns = ["project_id", "branch", "operations", "description", "depreciation_method"]
         projects_df = df[project_columns].drop_duplicates(subset="project_id")
         projects_data = [
@@ -49,8 +57,17 @@ class ImportService:
             for _, row in projects_df.iterrows()
         ]
         db_service = DatabaseService()
-        db_service.save_projects_batch(projects_data)
-        print("[INFO] Projects have been successfully imported and saved to the database.")
+        try:
+            db_service.save_projects_batch(projects_data, status_callback=status_callback)
+            if status_callback:
+                status_callback("[INFO] Projects have been successfully imported and saved to the database.")
+            else:
+                print("[INFO] Projects have been successfully imported and saved to the database.")
+        except Exception as e:
+            if status_callback:
+                status_callback(f"[ERROR] Failed to import projects: {e}")
+            else:
+                print(f"[ERROR] Failed to import projects: {e}")
 
     @staticmethod
     def create_project_classifications_from_dataframe():
