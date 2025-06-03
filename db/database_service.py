@@ -585,10 +585,11 @@ class DatabaseService:
             print(f"[ERROR] Failed to save projects batch: {repr(e)}")
             raise
 
-    def save_investments_batch(self, investments):
+    def save_investments_batch(self, investments, status_callback=None):
         """
         Save multiple investments in the database in a single batch.
         :param investments: A list of tuples (project_id, year, investment_amount).
+        :param status_callback: Optional callback for status updates (for GUI or web use).
         """
         query = """
             INSERT INTO investments (project_id, year, investment_amount)
@@ -597,8 +598,10 @@ class DatabaseService:
             SET investment_amount = EXCLUDED.investment_amount;
         """
         try:
-            status_window = StatusWindow("Database Operations Status")
-            status_window.update_status(f"[INFO] Attempting to save {len(investments)} investments in batch.")
+            if status_callback:
+                status_callback(f"[INFO] Attempting to save {len(investments)} investments in batch.")
+            else:
+                print(f"[INFO] Attempting to save {len(investments)} investments in batch.")
 
             # Extract project IDs from the incoming data
             project_ids = [str(investment[0]) for investment in investments]  # Ensure all IDs are strings
@@ -623,17 +626,27 @@ class DatabaseService:
                         cur.execute(query_delete, (tuple(project_ids),))
                         removed_rows = cur.rowcount
                         conn.commit()
-                        status_window.update_status(f"[INFO] Successfully saved {len(investments)} investments in batch and removed {removed_rows} obsolete rows.")
+                        msg = f"[INFO] Successfully saved {len(investments)} investments in batch and removed {removed_rows} obsolete rows."
+                        if status_callback:
+                            status_callback(msg)
+                        else:
+                            print(msg)
                     else:
-                        print("[WARNING] No project IDs provided. Skipping deletion of obsolete rows.")
+                        warning = "[WARNING] No project IDs provided. Skipping deletion of obsolete rows."
+                        if status_callback:
+                            status_callback(warning)
+                        else:
+                            print(warning)
         except psycopg2.errors.ForeignKeyViolation as e:
-            status_window = StatusWindow("Database Operations Status")
-            if "investments_project_id_fkey" in str(e):
-                status_window.update_status("[ERROR] ForeignKeyViolation: Some project IDs in investments are missing in the projects table. Please run 'Import Projects' to resolve this issue.")
+            msg = "[ERROR] ForeignKeyViolation: Some project IDs in investments are missing in the projects table. Please run 'Import Projects' to resolve this issue."
+            if status_callback:
+                status_callback(msg)
             print(f"[ERROR] ForeignKeyViolation: {e}")
             raise
         except Exception as e:
             print(f"[ERROR] Failed to save investments batch: {repr(e)}")
+            if status_callback:
+                status_callback(f"[ERROR] Failed to save investments batch: {repr(e)}")
             raise
 
     def save_project_classifications(self, classifications):

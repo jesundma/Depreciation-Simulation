@@ -100,49 +100,70 @@ class ImportService:
         print("[INFO] Project classifications have been successfully imported and saved to the database.")
 
     @staticmethod
-    def create_investments_from_dataframe():
+    def create_investments_from_dataframe(filepath=None, df=None, status_callback=None):
         """
         Read and save investment data from an Excel file to the 'investments' table.
+        Accepts either a filepath or a DataFrame. Uses status_callback for status updates if provided.
         """
-        df = ImportService.read_excel_to_dataframe(
-            title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
-        )
-        if df is None:
-            return
-        
+        import pandas as pd
+        if filepath is not None:
+            try:
+                df = pd.read_excel(filepath)
+                # Ensure all column names are strings immediately after loading
+                df.columns = [str(col).strip() for col in df.columns]
+                if status_callback:
+                    status_callback(f"[INFO] Loaded Excel file: {filepath}")
+            except Exception as e:
+                if status_callback:
+                    status_callback(f"[ERROR] Failed to read Excel file: {e}")
+                else:
+                    print(f"[ERROR] Failed to read Excel file: {e}")
+                return
+        elif df is None:
+            # GUI usage: open file dialog
+            df = ImportService.read_excel_to_dataframe(
+                title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
+            )
+            if df is None:
+                return
         # Debug: Print the column names to identify discrepancies
         print("[DEBUG] Column names in the Excel file:", df.columns.tolist())
-
-        # Normalize column names for comparison
-        df.columns = df.columns.str.strip().str.lower()
-        # Convert all column names to strings after normalization
-        df.columns = df.columns.map(str)
+        # Normalize column names for comparison (lowercase, but do not convert to string again)
+        df.columns = [col.strip().lower() for col in df.columns]
         investment_columns = [col.lower() for col in ["project_id", "2025", "2026", "2027", "2028", "2029", "2030", "2031", "2032", "2033", "2034", "2035"]]
-
-        # Debug: Print both investment_columns and df.columns to identify mismatches
         print("[DEBUG] Expected columns:", investment_columns)
         print("[DEBUG] Actual columns in DataFrame:", df.columns.tolist())
-
         # Check if all required columns are present in the DataFrame
         missing_columns = [col for col in investment_columns if col not in df.columns]
         if missing_columns:
-            print(f"[ERROR] Missing required columns in the Excel file: {missing_columns}")
+            msg = f"[ERROR] Missing required columns in the Excel file: {missing_columns}"
+            if status_callback:
+                status_callback(msg)
+            else:
+                print(msg)
             return
-
         # Create a new DataFrame for investments with specific headers
         investment_df = df[investment_columns].drop_duplicates(subset="project_id")
-
         # Transform the DataFrame to unpivot yearly data into individual rows
-        investment_data = [
-            (row["project_id"], int(year), row[year])
-            for _, row in investment_df.iterrows()
-            for year in ["2025", "2026", "2027", "2028", "2029", "2030", "2031", "2032", "2033", "2034", "2035"]
-        ]
-
+        investment_data = []
+        for _, row in investment_df.iterrows():
+            for year in investment_columns[1:]:  # skip 'project_id'
+                value = row[year]
+                if pd.notna(value):
+                    investment_data.append((str(row["project_id"]), int(year), value))
         db_service = DatabaseService()
-        db_service.save_investments_batch(investment_data)
-
-        print("[INFO] Investments have been successfully imported and saved to the database.")
+        try:
+            db_service.save_investments_batch(investment_data, status_callback=status_callback)
+            if status_callback:
+                status_callback("[INFO] Investments have been successfully imported and saved to the database.")
+            else:
+                print("[INFO] Investments have been successfully imported and saved to the database.")
+        except Exception as e:
+            msg = f"[ERROR] Failed to save investments: {e}"
+            if status_callback:
+                status_callback(msg)
+            else:
+                print(msg)
 
     @staticmethod
     def read_depreciation_years_from_excel():
