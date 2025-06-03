@@ -166,55 +166,79 @@ class ImportService:
                 print(msg)
 
     @staticmethod
-    def read_depreciation_years_from_excel():
-        """
-        Read and save depreciation years from an Excel file to the investments table.
-        """
-        df = ImportService.read_excel_to_dataframe(
-            title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
-        )
-        if df is None:
-            return
-        db_service = DatabaseService()
-
-    @staticmethod
-    def create_depreciation_starts_from_dataframe():
+    def create_depreciation_starts_from_dataframe(filepath=None, df=None, status_callback=None):
         """
         Import depreciation start data from an Excel file.
         Reads a DataFrame with columns: project_id (text), start_year (semicolon-separated string of years), start_month (semicolon-separated string of months, optional).
         Each year in start_year is treated as a separate entry for the project.
         If start_month is missing, empty, or mismatched, defaults to 1.
         If both columns have equal number of values, pair them. If months has one value, use for all years. Otherwise, default all months to 1.
+        :param status_callback: Optional function to receive status messages (for web or GUI feedback).
         """
-        df = ImportService.read_excel_to_dataframe(
-            title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
-        )
+        import pandas as pd
         if df is None:
-            return
+            if filepath is None:
+                # GUI usage: open file dialog
+                df = ImportService.read_excel_to_dataframe(
+                    title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
+                )
+                if df is None:
+                    return
+            else:
+                try:
+                    df = pd.read_excel(filepath)
+                    df.columns = [str(col).strip() for col in df.columns]
+                    if status_callback:
+                        status_callback(f"[INFO] Loaded Excel file: {filepath}")
+                except Exception as e:
+                    if status_callback:
+                        status_callback(f"[ERROR] Failed to read Excel file: {e}")
+                    else:
+                        print(f"[ERROR] Failed to read Excel file: {e}")
+                    return
         # Normalize column names
         df.columns = [str(col).strip().lower() for col in df.columns]
-        # Ensure required columns exist
-        required_columns = ["project_id", "start_year"]
+        # Use new column names
+        required_columns = ["project_id", "depreciation_years"]
         for col in required_columns:
             if col not in df.columns:
-                print(f"[ERROR] Missing required column: {col}")
+                msg = f"[ERROR] Missing required column: {col}"
+                if status_callback:
+                    status_callback(msg)
+                else:
+                    print(msg)
                 return
         expanded_rows = []
         for _, row in df.iterrows():
-            project_id = str(row["project_id"])
-            years = [y.strip() for y in str(row["start_year"]).split(';') if y.strip()]
-            # Handle start_month: can be missing, empty, or semicolon-separated
-            if "start_month" not in df.columns or pd.isna(row["start_month"]) or str(row["start_month"]).strip() == "":
+            project_id = str(row["project_id"]).strip()
+            start_year_raw = str(row["depreciation_years"]).strip()
+            if not project_id or project_id.lower() == "nan" or not start_year_raw or start_year_raw.lower() == "nan":
+                msg = f"[ERROR] Missing required project_id or depreciation_years in row: project_id='{project_id}', depreciation_years='{start_year_raw}'. Import aborted."
+                if status_callback:
+                    status_callback(msg)
+                else:
+                    print(msg)
+                raise ValueError(msg)
+            years = [y.strip() for y in start_year_raw.split(';') if y.strip()]
+            # Handle depreciation_months
+            if "depreciation_months" not in df.columns or pd.isna(row["depreciation_months"]) or str(row["depreciation_months"]).strip() == "":
                 months = ["1"] * len(years)
             else:
-                months_raw = str(row["start_month"]).strip()
+                months_raw = str(row["depreciation_months"]).strip()
                 months = [m.strip() for m in months_raw.split(';') if m.strip()]
                 if len(months) == len(years):
                     pass  # pair by index
                 elif len(months) == 1:
                     months = months * len(years)
-                else:
+                elif len(months) == 0 or (len(months) == 1 and months[0] in ("", "1", None)):
                     months = ["1"] * len(years)
+                else:
+                    msg = f"[ERROR] For project_id {project_id}: Number of years ({len(years)}) does not match number of months ({len(months)}), and months is not a single value or empty. Import aborted."
+                    if status_callback:
+                        status_callback(msg)
+                    else:
+                        print(msg)
+                    raise ValueError(msg)
             for year, month in zip(years, months):
                 if year.isdigit() and month.isdigit():
                     expanded_rows.append({
@@ -222,31 +246,43 @@ class ImportService:
                         "start_year": int(year),
                         "start_month": int(month)
                     })
+                else:
+                    msg = f"[ERROR] Non-integer year or month for project_id {project_id}: year='{year}', month='{month}'. Import aborted."
+                    if status_callback:
+                        status_callback(msg)
+                    else:
+                        print(msg)
+                    raise ValueError(msg)
         expanded_df = pd.DataFrame(expanded_rows)
-        print("[INFO] Expanded depreciation starts DataFrame:")
-        print(expanded_df)
-        # Insert expanded_df into the appropriate database table
+        if status_callback:
+            status_callback("[INFO] Expanded depreciation starts DataFrame:")
+            status_callback(str(expanded_df))
+        else:
+            print("[INFO] Expanded depreciation starts DataFrame:")
+            print(expanded_df)
         db_service = DatabaseService()
-        # Get all valid project_ids from the database
         valid_project_ids = set(db_service.get_all_project_ids())
-        # Filter out rows with missing project_ids and warn
         missing_projects = set(row["project_id"] for _, row in expanded_df.iterrows() if row["project_id"] not in valid_project_ids)
         if missing_projects:
-            print(f"[WARNING] The following project_ids are missing from the projects table and will be skipped: {sorted(missing_projects)}")
-            import sys
-            sys.stdout.flush()
-            try:
-                from gui.status_window import StatusWindow
-                StatusWindow("Import Warning").update_status(f"[WARNING] The following project_ids are missing from the projects table and will be skipped: {sorted(missing_projects)}")
-            except Exception as e:
-                print(f"[WARNING] Could not update status window: {e}")
+            msg = f"[WARNING] The following project_ids are missing from the projects table and will be skipped: {sorted(missing_projects)}"
+            if status_callback:
+                status_callback(msg)
+            else:
+                print(msg)
         filtered_df = expanded_df[expanded_df["project_id"].isin(valid_project_ids)]
-        # Convert DataFrame to list of tuples (project_id, start_year, start_month)
         depreciation_starts = [
             (row["project_id"], row["start_year"], row["start_month"]) for _, row in filtered_df.iterrows()
         ]
         if depreciation_starts:
             db_service.save_depreciation_starts_batch(depreciation_starts)
-            print("[INFO] Depreciation starts import completed and saved to database.")
+            msg = "[INFO] Depreciation starts import completed and saved to database."
+            if status_callback:
+                status_callback(msg)
+            else:
+                print(msg)
         else:
-            print("[INFO] No valid depreciation starts to insert.")
+            msg = "[INFO] No valid depreciation starts to insert."
+            if status_callback:
+                status_callback(msg)
+            else:
+                print(msg)
