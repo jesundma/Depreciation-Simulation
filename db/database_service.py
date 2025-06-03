@@ -493,6 +493,24 @@ class DatabaseService:
         query = "SELECT * FROM projects"
         return self.execute_query(query, fetch=True)
 
+    # --- Shared sanitization helper for batch imports ---
+    @staticmethod
+    def sanitize_value(val):
+        try:
+            import pandas as pd
+        except ImportError:
+            pd = None
+        try:
+            import numpy as np
+        except ImportError:
+            np = None
+        if pd is not None and pd.isna(val):
+            return None
+        if np is not None and isinstance(val, float) and np.isnan(val):
+            return None
+        return val
+    # --- End helper ---
+
     def save_projects_batch(self, projects, status_callback=None):
         """
         Save multiple projects in the database in a single batch.
@@ -513,24 +531,8 @@ class DatabaseService:
             print(f"Duplicate IDs: {duplicates}")
 
             # --- Sanitize project tuples to replace pd.NA, np.nan, etc. with None ---
-            try:
-                import pandas as pd
-            except ImportError:
-                pd = None
-            try:
-                import numpy as np
-            except ImportError:
-                np = None
-
-            def sanitize_value(val):
-                if pd is not None and pd.isna(val):
-                    return None
-                if np is not None and isinstance(val, float) and np.isnan(val):
-                    return None
-                return val
-
             sanitized_projects = [
-                tuple(sanitize_value(v) for v in project)
+                tuple(self.sanitize_value(v) for v in project)
                 for project in projects
             ]
             # --- End sanitization ---
@@ -595,37 +597,36 @@ class DatabaseService:
             SET investment_amount = EXCLUDED.investment_amount;
         """
         try:
-            # Initialize StatusWindow dynamically
             status_window = StatusWindow("Database Operations Status")
             status_window.update_status(f"[INFO] Attempting to save {len(investments)} investments in batch.")
 
             # Extract project IDs from the incoming data
             project_ids = [str(investment[0]) for investment in investments]  # Ensure all IDs are strings
 
-            # Use psycopg2's execute_values for efficient batch inserts
+            # --- Sanitize investments ---
+            sanitized_investments = [
+                tuple(self.sanitize_value(v) for v in investment)
+                for investment in investments
+            ]
+            # --- End sanitization ---
+
             from psycopg2.extras import execute_values
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cur:
-                    # Insert or update rows
-                    execute_values(cur, query, investments)
+                    execute_values(cur, query, sanitized_investments)
 
-                    # Ensure project_ids is not empty to avoid SQL syntax errors
                     if project_ids:
                         query_delete = """
                             DELETE FROM investment_depreciation_periods
                             WHERE project_id NOT IN %s;
                         """
-                        # Execute the DELETE query and get the number of rows removed
                         cur.execute(query_delete, (tuple(project_ids),))
                         removed_rows = cur.rowcount
                         conn.commit()
-
-                        # Update the StatusWindow with the correct number of rows removed
                         status_window.update_status(f"[INFO] Successfully saved {len(investments)} investments in batch and removed {removed_rows} obsolete rows.")
                     else:
                         print("[WARNING] No project IDs provided. Skipping deletion of obsolete rows.")
         except psycopg2.errors.ForeignKeyViolation as e:
-            # Initialize StatusWindow dynamically if not already initialized
             status_window = StatusWindow("Database Operations Status")
             if "investments_project_id_fkey" in str(e):
                 status_window.update_status("[ERROR] ForeignKeyViolation: Some project IDs in investments are missing in the projects table. Please run 'Import Projects' to resolve this issue.")
@@ -641,18 +642,21 @@ class DatabaseService:
         :param classifications: A list of tuples (project_id, importance, type).
         """
         try:
-            # Initialize StatusWindow dynamically
             status_window = StatusWindow("Database Operations Status")
             status_window.update_status(f"[INFO] Attempting to save {len(classifications)} project classifications in batch.")
 
-            # Extract project IDs from the incoming data
-            project_ids = [str(classification[0]) for classification in classifications]  # Ensure all IDs are strings
+            project_ids = [str(classification[0]) for classification in classifications]
 
-            # Use psycopg2's execute_values for efficient batch inserts/updates
+            # --- Sanitize classifications ---
+            sanitized_classifications = [
+                tuple(self.sanitize_value(v) for v in classification)
+                for classification in classifications
+            ]
+            # --- End sanitization ---
+
             from psycopg2.extras import execute_values
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cur:
-                    # Insert or update rows
                     query_upsert = """
                         INSERT INTO project_classifications (project_id, importance, type)
                         VALUES %s
@@ -660,9 +664,8 @@ class DatabaseService:
                         SET importance = EXCLUDED.importance,
                             type = EXCLUDED.type;
                     """
-                    execute_values(cur, query_upsert, classifications)
+                    execute_values(cur, query_upsert, sanitized_classifications)
 
-                    # Ensure project_ids is not empty to avoid SQL syntax errors
                     if project_ids:
                         query_delete = """
                             DELETE FROM project_classifications
@@ -674,31 +677,9 @@ class DatabaseService:
 
                     conn.commit()
 
-            # Log success
             status_window.update_status(f"[INFO] Successfully saved {len(classifications)} project classifications in batch and removed obsolete rows.")
         except Exception as e:
             print(f"[ERROR] Failed to save project classifications batch: {repr(e)}")
-            raise
-
-    def save_depreciation_years_batch(self, depreciation_years_data):
-        """
-        Save multiple depreciation years in the database in a single batch.
-        :param depreciation_years_data: A list of tuples (project_id, year, depreciation_year).
-        """
-        query = """
-            UPDATE investments
-            SET depreciation_start_year = data.depreciation_year
-            FROM (VALUES %s) AS data(project_id, year, depreciation_year)
-            WHERE investments.project_id = data.project_id AND investments.year = data.year;
-        """
-        try:
-            from psycopg2.extras import execute_values
-            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
-                with conn.cursor() as cur:
-                    execute_values(cur, query, depreciation_years_data, template=None)
-                    conn.commit()
-        except Exception as e:
-            print(f"[ERROR] Failed to save depreciation years batch: {e}")
             raise
 
     def save_project_classifications_batch(self, classifications):
@@ -718,34 +699,31 @@ class DatabaseService:
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cur:
                     print(f"[DEBUG] Attempting to save {len(classifications)} project classifications in batch.")
-                    execute_values(cur, query, classifications)
+                    # --- Sanitize classifications ---
+                    sanitized_classifications = [
+                        tuple(self.sanitize_value(v) for v in classification)
+                        for classification in classifications
+                    ]
+                    # --- End sanitization ---
+                    execute_values(cur, query, sanitized_classifications)
 
-                    # Extract project IDs from the incoming data
                     project_ids = [str(classification[0]) for classification in classifications]
 
-                    # Ensure project_ids is not empty to avoid SQL syntax errors
                     if project_ids:
                         query_delete = """
                             DELETE FROM project_classifications
                             WHERE project_id NOT IN %s;
                         """
-                        # Execute the DELETE query and get the number of rows removed
                         cur.execute(query_delete, (tuple(project_ids),))
                         removed_rows = cur.rowcount
                         conn.commit()
-
-                        # Initialize StatusWindow dynamically
                         status_window = StatusWindow("Database Operations Status")
-
-                        # Update the StatusWindow with the correct number of rows removed
                         status_window.update_status(f"[INFO] Successfully saved {len(classifications)} classifications in batch and removed {removed_rows} obsolete rows.")
-
                     else:
                         print("[WARNING] No project IDs provided. Skipping deletion of obsolete rows.")
 
                     print(f"[DEBUG] Successfully saved {len(classifications)} project classifications in batch.")
         except psycopg2.errors.ForeignKeyViolation as e:
-            # Initialize StatusWindow dynamically if not already initialized
             status_window = StatusWindow("Database Operations Status")
             if "project_classifications_project_id_fkey" in str(e):
                 status_window.update_status("[ERROR] ForeignKeyViolation: Some project IDs in classifications are missing in the projects table. Please run 'Import Projects' to resolve this issue.")
@@ -753,6 +731,79 @@ class DatabaseService:
             raise
         except Exception as e:
             print(f"[ERROR] Failed to save project classifications batch: {e}")
+            raise
+
+    def save_depreciation_years_batch(self, depreciation_years_data):
+        """
+        Save multiple depreciation years in the database in a single batch.
+        :param depreciation_years_data: A list of tuples (project_id, year, depreciation_year).
+        """
+        query = """
+            UPDATE investments
+            SET depreciation_start_year = data.depreciation_year
+            FROM (VALUES %s) AS data(project_id, year, depreciation_year)
+            WHERE investments.project_id = data.project_id AND investments.year = data.year;
+        """
+        try:
+            from psycopg2.extras import execute_values
+            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                with conn.cursor() as cur:
+                    # --- Sanitize depreciation_years_data ---
+                    sanitized_data = [
+                        tuple(self.sanitize_value(v) for v in row)
+                        for row in depreciation_years_data
+                    ]
+                    # --- End sanitization ---
+                    execute_values(cur, query, sanitized_data, template=None)
+                    conn.commit()
+        except Exception as e:
+            print(f"[ERROR] Failed to save depreciation years batch: {e}")
+            raise
+
+    def save_depreciation_starts_batch(self, depreciation_starts):
+        """
+        Save multiple depreciation start years and months in the investment_depreciation_periods table in a single batch.
+        Removes rows for (project_id, start_year) pairs not present in the new data.
+        :param depreciation_starts: A list of tuples (project_id, start_year, start_month).
+        """
+        query_upsert = """
+            INSERT INTO investment_depreciation_periods (project_id, start_year, start_month)
+            VALUES %s
+            ON CONFLICT (project_id, start_year) DO UPDATE
+            SET start_month = EXCLUDED.start_month;
+        """
+        try:
+            status_window = StatusWindow("Database Operations Status")
+            status_window.update_status(f"[INFO] Attempting to save {len(depreciation_starts)} depreciation starts in batch.")
+
+            from psycopg2.extras import execute_values
+            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                with conn.cursor() as cur:
+                    # --- Sanitize depreciation_starts ---
+                    sanitized_starts = [
+                        tuple(self.sanitize_value(v) for v in row)
+                        for row in depreciation_starts
+                    ]
+                    # --- End sanitization ---
+                    execute_values(cur, query_upsert, sanitized_starts)
+
+                    keep_pairs = [(str(t[0]), int(t[1])) for t in depreciation_starts]
+                    if keep_pairs:
+                        row_placeholders = ', '.join(['ROW(%s, %s)'] * len(keep_pairs))
+                        flat_params = [item for pair in keep_pairs for item in pair]
+                        delete_query = f"""
+                            DELETE FROM investment_depreciation_periods
+                            WHERE (project_id, start_year) NOT IN ({row_placeholders});
+                        """
+                        cur.execute(delete_query, flat_params)
+                        removed_rows = cur.rowcount
+                    else:
+                        removed_rows = 0
+                    conn.commit()
+
+            status_window.update_status(f"[INFO] Successfully saved {len(depreciation_starts)} depreciation starts in batch and removed {removed_rows} obsolete rows.")
+        except Exception as e:
+            print(f"[ERROR] Failed to save depreciation starts batch: {e}")
             raise
 
     def get_all_project_ids(self):
@@ -871,12 +922,16 @@ class DatabaseService:
             from psycopg2.extras import execute_values
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cur:
-                    execute_values(cur, query_upsert, depreciation_starts)
+                    # --- Sanitize depreciation_starts ---
+                    sanitized_starts = [
+                        tuple(self.sanitize_value(v) for v in row)
+                        for row in depreciation_starts
+                    ]
+                    # --- End sanitization ---
+                    execute_values(cur, query_upsert, sanitized_starts)
 
-                    # Prepare set of (project_id, start_year) pairs to keep
                     keep_pairs = [(str(t[0]), int(t[1])) for t in depreciation_starts]
                     if keep_pairs:
-                        # Build the ROW constructor string and parameters
                         row_placeholders = ', '.join(['ROW(%s, %s)'] * len(keep_pairs))
                         flat_params = [item for pair in keep_pairs for item in pair]
                         delete_query = f"""
