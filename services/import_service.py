@@ -275,9 +275,16 @@ class ImportService:
             else:
                 print(msg)
         filtered_df = expanded_df[expanded_df["project_id"].isin(valid_project_ids)]
+        print("[DEBUG] expanded_df columns:", expanded_df.columns.tolist())
+        print("[DEBUG] expanded_df head:\n", expanded_df.head())
+        print("[DEBUG] valid_project_ids:", valid_project_ids)
+        print("[DEBUG] missing_projects:", missing_projects)
+        print("[DEBUG] filtered_df columns:", filtered_df.columns.tolist())
+        print("[DEBUG] filtered_df head:\n", filtered_df.head())
         depreciation_starts = [
             (row["project_id"], row["start_year"], row["start_month"]) for _, row in filtered_df.iterrows()
         ]
+        print("[DEBUG] depreciation_starts sample:", depreciation_starts[:5])
         if depreciation_starts:
             db_service.save_depreciation_starts_batch(depreciation_starts)
             msg = "[INFO] Depreciation starts import completed and saved to database."

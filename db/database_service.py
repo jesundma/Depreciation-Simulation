@@ -786,35 +786,38 @@ class DatabaseService:
             SET start_month = EXCLUDED.start_month;
         """
         try:
-            status_window = StatusWindow("Database Operations Status")
-            status_window.update_status(f"[INFO] Attempting to save {len(depreciation_starts)} depreciation starts in batch.")
+            # Remove all StatusWindow/tkinter-specific code from this method
+            # Only use print for status updates (status_callback is not available here)
+            try:
+                # --- Sanitize depreciation_starts ---
+                sanitized_starts = [
+                    tuple(self.sanitize_value(v) for v in row)
+                    for row in depreciation_starts
+                ]
+                # --- End sanitization ---
+                from psycopg2.extras import execute_values
+                with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                    with conn.cursor() as cur:
+                        execute_values(cur, query_upsert, sanitized_starts)
 
-            from psycopg2.extras import execute_values
-            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
-                with conn.cursor() as cur:
-                    # --- Sanitize depreciation_starts ---
-                    sanitized_starts = [
-                        tuple(self.sanitize_value(v) for v in row)
-                        for row in depreciation_starts
-                    ]
-                    # --- End sanitization ---
-                    execute_values(cur, query_upsert, sanitized_starts)
+                        keep_pairs = [(str(t[0]), int(t[1])) for t in depreciation_starts]
+                        if keep_pairs:
+                            row_placeholders = ', '.join(['ROW(%s, %s)'] * len(keep_pairs))
+                            flat_params = [item for pair in keep_pairs for item in pair]
+                            delete_query = f"""
+                                DELETE FROM investment_depreciation_periods
+                                WHERE (project_id, start_year) NOT IN ({row_placeholders});
+                            """
+                            cur.execute(delete_query, flat_params)
+                            removed_rows = cur.rowcount
+                        else:
+                            removed_rows = 0
+                        conn.commit()
 
-                    keep_pairs = [(str(t[0]), int(t[1])) for t in depreciation_starts]
-                    if keep_pairs:
-                        row_placeholders = ', '.join(['ROW(%s, %s)'] * len(keep_pairs))
-                        flat_params = [item for pair in keep_pairs for item in pair]
-                        delete_query = f"""
-                            DELETE FROM investment_depreciation_periods
-                            WHERE (project_id, start_year) NOT IN ({row_placeholders});
-                        """
-                        cur.execute(delete_query, flat_params)
-                        removed_rows = cur.rowcount
-                    else:
-                        removed_rows = 0
-                    conn.commit()
-
-            status_window.update_status(f"[INFO] Successfully saved {len(depreciation_starts)} depreciation starts in batch and removed {removed_rows} obsolete rows.")
+                print(f"[INFO] Successfully saved {len(depreciation_starts)} depreciation starts in batch and removed {removed_rows} obsolete rows.")
+            except Exception as e:
+                print(f"[ERROR] Failed to save depreciation starts batch: {e}")
+                raise
         except Exception as e:
             print(f"[ERROR] Failed to save depreciation starts batch: {e}")
             raise
@@ -828,7 +831,7 @@ class DatabaseService:
         results = self.execute_query(query, fetch=True)
         # Ensure results are iterable before using comprehensions
         if results and isinstance(results, list):
-            return [row[0] for row in results]  # Access the first element of each tuple
+            return [row["project_id"] for row in results]  # Access by key for RealDictCursor
         else:
             return []
 
@@ -929,35 +932,38 @@ class DatabaseService:
             SET start_month = EXCLUDED.start_month;
         """
         try:
-            status_window = StatusWindow("Database Operations Status")
-            status_window.update_status(f"[INFO] Attempting to save {len(depreciation_starts)} depreciation starts in batch.")
+            # Remove all StatusWindow/tkinter-specific code from this method
+            # Only use print for status updates (status_callback is not available here)
+            try:
+                # --- Sanitize depreciation_starts ---
+                sanitized_starts = [
+                    tuple(self.sanitize_value(v) for v in row)
+                    for row in depreciation_starts
+                ]
+                # --- End sanitization ---
+                from psycopg2.extras import execute_values
+                with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+                    with conn.cursor() as cur:
+                        execute_values(cur, query_upsert, sanitized_starts)
 
-            from psycopg2.extras import execute_values
-            with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
-                with conn.cursor() as cur:
-                    # --- Sanitize depreciation_starts ---
-                    sanitized_starts = [
-                        tuple(self.sanitize_value(v) for v in row)
-                        for row in depreciation_starts
-                    ]
-                    # --- End sanitization ---
-                    execute_values(cur, query_upsert, sanitized_starts)
+                        keep_pairs = [(str(t[0]), int(t[1])) for t in depreciation_starts]
+                        if keep_pairs:
+                            row_placeholders = ', '.join(['ROW(%s, %s)'] * len(keep_pairs))
+                            flat_params = [item for pair in keep_pairs for item in pair]
+                            delete_query = f"""
+                                DELETE FROM investment_depreciation_periods
+                                WHERE (project_id, start_year) NOT IN ({row_placeholders});
+                            """
+                            cur.execute(delete_query, flat_params)
+                            removed_rows = cur.rowcount
+                        else:
+                            removed_rows = 0
+                        conn.commit()
 
-                    keep_pairs = [(str(t[0]), int(t[1])) for t in depreciation_starts]
-                    if keep_pairs:
-                        row_placeholders = ', '.join(['ROW(%s, %s)'] * len(keep_pairs))
-                        flat_params = [item for pair in keep_pairs for item in pair]
-                        delete_query = f"""
-                            DELETE FROM investment_depreciation_periods
-                            WHERE (project_id, start_year) NOT IN ({row_placeholders});
-                        """
-                        cur.execute(delete_query, flat_params)
-                        removed_rows = cur.rowcount
-                    else:
-                        removed_rows = 0
-                    conn.commit()
-
-            status_window.update_status(f"[INFO] Successfully saved {len(depreciation_starts)} depreciation starts in batch and removed {removed_rows} obsolete rows.")
+                print(f"[INFO] Successfully saved {len(depreciation_starts)} depreciation starts in batch and removed {removed_rows} obsolete rows.")
+            except Exception as e:
+                print(f"[ERROR] Failed to save depreciation starts batch: {e}")
+                raise
         except Exception as e:
             print(f"[ERROR] Failed to save depreciation starts batch: {e}")
             raise

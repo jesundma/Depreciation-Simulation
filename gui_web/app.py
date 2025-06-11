@@ -71,7 +71,13 @@ def import_depreciation_starts():
         ImportService.create_depreciation_starts_from_dataframe(filepath=temp_path, status_callback=status_callback)
         success = True
     except Exception as e:
+        import traceback
+        tb = traceback.format_exc()
         messages.append(f'Error importing depreciation starts: {e}')
+        messages.append(f'Traceback: {tb}')
+        # If the error is about a malformed tuple, try to show more context
+        if hasattr(e, 'args') and e.args and 'tuple' in str(e.args[0]):
+            messages.append('Possible malformed tuple detected. Check the debug output in the backend logs for tuple samples.')
         success = False
     finally:
         if os.path.exists(temp_path):
