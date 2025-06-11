@@ -92,5 +92,32 @@ def import_depreciation_starts():
             os.remove(temp_path)
     return jsonify({'success': success, 'messages': messages})
 
+@app.route('/search-projects')
+def search_projects():
+    project_id = request.args.get('project_id')
+    branch = request.args.get('branch')
+    operations = request.args.get('operations')
+    description = request.args.get('description')
+    from services.project_management_service import ProjectManagementService
+    results = ProjectManagementService.search_projects(
+        project_id=project_id or None,
+        branch=branch or None,
+        operations=operations or None,
+        description=description or None
+    )
+    # Convert results to dicts for JSON serialization
+    projects = []
+    for proj in results:
+        # If proj is a Project instance, convert to dict
+        if hasattr(proj, '__dict__'):
+            projects.append(proj.__dict__)
+        elif isinstance(proj, dict):
+            projects.append(proj)
+        elif isinstance(proj, (list, tuple)):
+            # Fallback: try to map to keys
+            keys = ['project_id', 'branch', 'operations', 'description', 'depreciation_method']
+            projects.append(dict(zip(keys, proj)))
+    return jsonify(projects)
+
 if __name__ == '__main__':
     app.run(debug=True)

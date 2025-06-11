@@ -279,7 +279,8 @@ class DatabaseService:
         query = "SELECT * FROM projects WHERE project_id = %s"
         params = (project_id,)
         results = self.execute_query(query, params, fetch=True)
-        return results[0] if results else None
+        # Only return raw results; conversion for web should be done in the service layer
+        return results
 
     def search_projects(self, project_id=None, branch=None, operations=None, description=None):
         """
@@ -306,7 +307,9 @@ class DatabaseService:
             query += " AND description ILIKE %s"
             params.append(f"%{description}%")
 
-        return self.execute_query(query, params, fetch=True)
+        results = self.execute_query(query, params, fetch=True)
+        # Only return raw results; conversion for web should be done in the service layer
+        return results
 
     def fetch_depreciation_methods(self):
         """

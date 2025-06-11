@@ -1,6 +1,7 @@
 from db.database_service import DatabaseService
 from models.project_model import Project
 from typing import Optional
+import json
 
 class ProjectManagementService:
     @staticmethod
@@ -27,17 +28,18 @@ class ProjectManagementService:
                 depreciation_method=project_data[4]
             )
         return None
-        return None
-
+    
     @staticmethod
     def search_projects(project_id=None, branch=None, operations=None, description=None):
         """
         Search for projects in the database based on criteria.
         """
         db_service = DatabaseService()
-        return db_service.search_projects(
+        results = db_service.search_projects(
             project_id=project_id,
             branch=branch,
             operations=operations,
             description=description
         )
+        # Return a list of dicts for Flask jsonify (not a JSON string)
+        return [dict(row) for row in results]
