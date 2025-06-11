@@ -220,7 +220,7 @@ class ImportService:
                     print(msg)
                 raise ValueError(msg)
             years = [y.strip() for y in start_year_raw.split(';') if y.strip()]
-            # Handle depreciation_months
+            # Handle depreciation_months with robust defaulting
             if "depreciation_months" not in df.columns or pd.isna(row["depreciation_months"]) or str(row["depreciation_months"]).strip() == "":
                 months = ["1"] * len(years)
             else:
@@ -230,15 +230,20 @@ class ImportService:
                     pass  # pair by index
                 elif len(months) == 1:
                     months = months * len(years)
-                elif len(months) == 0 or (len(months) == 1 and months[0] in ("", "1", None)):
-                    months = ["1"] * len(years)
-                else:
-                    msg = f"[ERROR] For project_id {project_id}: Number of years ({len(years)}) does not match number of months ({len(months)}), and months is not a single value or empty. Import aborted."
+                elif len(months) < len(years):
+                    msg = f"[INFO] For project_id {project_id}: Number of years ({len(years)}) is greater than number of months ({len(months)}). Missing months will be filled with default value 1."
                     if status_callback:
                         status_callback(msg)
                     else:
                         print(msg)
-                    raise ValueError(msg)
+                    months = months + ["1"] * (len(years) - len(months))
+                elif len(months) > len(years):
+                    msg = f"[INFO] For project_id {project_id}: Number of months ({len(months)}) is greater than number of years ({len(years)}). Extra months will be ignored."
+                    if status_callback:
+                        status_callback(msg)
+                    else:
+                        print(msg)
+                    months = months[:len(years)]
             for year, month in zip(years, months):
                 if year.isdigit() and month.isdigit():
                     expanded_rows.append({
