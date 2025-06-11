@@ -13,6 +13,10 @@ app.secret_key = 'your_secret_key'  # Needed for flashing messages
 def home():
     return render_template('index.html')
 
+@app.route('/import')
+def import_page():
+    return render_template('import.html')
+
 @app.route('/import-projects', methods=['POST'])
 def import_projects():
     file = request.files.get('file')

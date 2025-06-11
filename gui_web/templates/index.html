@@ -2,134 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Depreciation Simulation Web</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        h1 { margin-bottom: 30px; }
-        .import-buttons { display: flex; flex-direction: column; gap: 15px; max-width: 350px; }
-        button { padding: 12px 20px; font-size: 1rem; border-radius: 5px; border: 1px solid #888; background: #f5f5f5; cursor: pointer; transition: background 0.2s; }
-        button:hover { background: #e0e0e0; }
-    </style>
+    <title>Depreciation Simulation Home</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 </head>
 <body>
-    <h1>Welcome to Depreciation Simulation Web</h1>
-    <p>This is the Flask web frontend. Functionality will be added to match the desktop app.</p>
-    <div class="import-buttons">
-        <form id="import-projects-form" enctype="multipart/form-data">
-            <input id="import-projects-file" type="file" name="file" accept=".xlsx,.xls" required style="display:none;">
-            <button type="button" id="import-projects-btn">Import Projects</button>
-        </form>
-        <div id="import-status" style="margin-top:20px;"></div>
-        <form id="import-investments-form" enctype="multipart/form-data">
-            <input id="import-investments-file" type="file" name="file" accept=".xlsx,.xls" required style="display:none;">
-            <button type="button" id="import-investments-btn">Import Investments</button>
-        </form>
-        <div id="import-investments-status" style="margin-top:10px;"></div>
-        <form id="import-depreciation-starts-form" enctype="multipart/form-data">
-            <input id="import-depreciation-starts-file" type="file" name="file" accept=".xlsx,.xls" required style="display:none;">
-            <button type="button" id="import-depreciation-starts-btn">Import Depreciation Starts</button>
-        </form>
-        <div id="import-depreciation-starts-status" style="margin-top:10px;"></div>
-        <form action="/import-classifications" method="post" enctype="multipart/form-data">
-            <button type="submit">Import Classifications</button>
-        </form>
+    <div class="container mt-5">
+        <h1>Welcome to Depreciation Simulation</h1>
+        <p class="lead">Choose an action below:</p>
+        <a href="/import" class="btn btn-primary">Go to Data Import Page</a>
     </div>
-    <script>
-        const importBtn = document.getElementById('import-projects-btn');
-        const fileInput = document.getElementById('import-projects-file');
-        const form = document.getElementById('import-projects-form');
-        const statusDiv = document.getElementById('import-status');
-        importBtn.addEventListener('click', function() {
-            fileInput.click();
-        });
-        fileInput.addEventListener('change', function() {
-            if (fileInput.files.length > 0) {
-                const formData = new FormData(form);
-                statusDiv.innerHTML = 'Importing...';
-                fetch('/import-projects', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    statusDiv.innerHTML = data.messages.map(m => `<div>${m}</div>`).join('');
-                    if (!data.success) {
-                        statusDiv.style.color = 'red';
-                    } else {
-                        statusDiv.style.color = 'green';
-                    }
-                })
-                .catch(err => {
-                    statusDiv.innerHTML = 'An error occurred.';
-                    statusDiv.style.color = 'red';
-                });
-            }
-        });
-
-        // Investments AJAX import
-        const investBtn = document.getElementById('import-investments-btn');
-        const investFileInput = document.getElementById('import-investments-file');
-        const investForm = document.getElementById('import-investments-form');
-        const investStatusDiv = document.getElementById('import-investments-status');
-        investBtn.addEventListener('click', function() {
-            investFileInput.click();
-        });
-        investFileInput.addEventListener('change', function() {
-            if (investFileInput.files.length > 0) {
-                const formData = new FormData(investForm);
-                investStatusDiv.innerHTML = 'Importing...';
-                fetch('/import-investments', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    investStatusDiv.innerHTML = data.messages.map(m => `<div>${m}</div>`).join('');
-                    if (!data.success) {
-                        investStatusDiv.style.color = 'red';
-                    } else {
-                        investStatusDiv.style.color = 'green';
-                    }
-                })
-                .catch(err => {
-                    investStatusDiv.innerHTML = 'An error occurred.';
-                    investStatusDiv.style.color = 'red';
-                });
-            }
-        });
-
-        // Depreciation Starts AJAX import
-        const depBtn = document.getElementById('import-depreciation-starts-btn');
-        const depFileInput = document.getElementById('import-depreciation-starts-file');
-        const depForm = document.getElementById('import-depreciation-starts-form');
-        const depStatusDiv = document.getElementById('import-depreciation-starts-status');
-        depBtn.addEventListener('click', function() {
-            depFileInput.click();
-        });
-        depFileInput.addEventListener('change', function() {
-            if (depFileInput.files.length > 0) {
-                const formData = new FormData(depForm);
-                depStatusDiv.innerHTML = 'Importing...';
-                fetch('/import-depreciation-starts', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    depStatusDiv.innerHTML = data.messages.map(m => `<div>${m}</div>`).join('');
-                    if (!data.success) {
-                        depStatusDiv.style.color = 'red';
-                    } else {
-                        depStatusDiv.style.color = 'green';
-                    }
-                })
-                .catch(err => {
-                    depStatusDiv.innerHTML = 'An error occurred.';
-                    depStatusDiv.style.color = 'red';
-                });
-            }
-        });
-    </script>
 </body>
 </html>

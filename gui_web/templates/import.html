@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Data Import</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        #import-status-modal .modal-dialog {
+            max-width: 700px;
+        }
+        #import-status-modal pre {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 1em;
+            font-size: 1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>Data Import Functions</h1>
+        <a href="/" class="btn btn-secondary mb-4">&larr; Back to Home</a>
+        <div class="mb-4">
+            <h3>Import Projects</h3>
+            <form id="import-projects-form" action="/import-projects" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" class="form-control mb-2" required>
+                <button type="submit" class="btn btn-primary">Import Projects</button>
+            </form>
+        </div>
+        <div class="mb-4">
+            <h3>Import Investments</h3>
+            <form id="import-investments-form" action="/import-investments" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" class="form-control mb-2" required>
+                <button type="submit" class="btn btn-primary">Import Investments</button>
+            </form>
+        </div>
+        <div class="mb-4">
+            <h3>Import Depreciation Starts</h3>
+            <form id="import-depreciation-starts-form" action="/import-depreciation-starts" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" class="form-control mb-2" required>
+                <button type="submit" class="btn btn-primary">Import Depreciation Starts</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal for import status -->
+    <div class="modal fade" id="import-status-modal" tabindex="-1" aria-labelledby="importStatusModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="importStatusModalLabel">Import Status</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div id="import-status-success" class="mb-2"></div>
+            <pre id="import-status-messages"></pre>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    function showImportStatus(success, messages) {
+        const modal = new bootstrap.Modal(document.getElementById('import-status-modal'));
+        document.getElementById('import-status-success').innerHTML = success
+            ? '<span class="text-success fw-bold">Import successful!</span>'
+            : '<span class="text-danger fw-bold">Import failed!</span>';
+        document.getElementById('import-status-messages').textContent = messages.join('\n');
+        modal.show();
+    }
+
+    function handleImportForm(formId) {
+        const form = document.getElementById(formId);
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                showImportStatus(data.success, data.messages);
+            })
+            .catch(err => {
+                showImportStatus(false, ['An error occurred while importing.', err.toString()]);
+            });
+        });
+    }
+
+    handleImportForm('import-projects-form');
+    handleImportForm('import-investments-form');
+    handleImportForm('import-depreciation-starts-form');
+    </script>
+</body>
+</html>
