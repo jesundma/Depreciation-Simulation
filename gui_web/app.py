@@ -17,6 +17,10 @@ def home():
 def import_page():
     return render_template('import.html')
 
+@app.route('/projects')
+def projects_page():
+    return render_template('projects.html')
+
 @app.route('/import-projects', methods=['POST'])
 def import_projects():
     file = request.files.get('file')
