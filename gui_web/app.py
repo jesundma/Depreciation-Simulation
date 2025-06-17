@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 import os
 from services.import_service import ImportService
-from gui_web.auth import register_login_routes, login_required
+from gui_web.auth import register_login_routes, login_required, admin_required
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Needed for flashing messages
@@ -17,7 +17,8 @@ register_login_routes(app)
 # Add login_required to home page
 @login_required
 def home():
-    return render_template('index.html')
+    role = session.get('role', 'user')
+    return render_template('index.html', role=role)
 
 @app.route('/import')
 def import_page():
@@ -26,6 +27,11 @@ def import_page():
 @app.route('/projects')
 def projects_page():
     return render_template('projects.html')
+
+@app.route('/admin')
+@admin_required
+def admin_page():
+    return render_template('admin.html')
 
 @app.route('/import-projects', methods=['POST'])
 def import_projects():
