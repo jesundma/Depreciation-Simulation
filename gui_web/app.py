@@ -2,14 +2,20 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 import os
 from services.import_service import ImportService
+from gui_web.auth import register_login_routes, login_required
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Needed for flashing messages
 
+# Register login/logout routes
+register_login_routes(app)
+
 @app.route('/')
+# Add login_required to home page
+@login_required
 def home():
     return render_template('index.html')
 
