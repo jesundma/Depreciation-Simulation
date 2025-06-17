@@ -52,16 +52,30 @@
 <script>
 document.getElementById('create-user-form').addEventListener('submit', function(e) {
     e.preventDefault();
-    // Placeholder: Show alert with form data (replace with AJAX call to backend)
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     const role = document.getElementById('role').value;
-    alert(`User to create:\nUsername: ${username}\nPassword: ${password}\nRole: ${role}`);
-    // Close modal
-    const modal = bootstrap.Modal.getInstance(document.getElementById('createUserModal'));
-    if (modal) modal.hide();
-    // Reset form
-    this.reset();
+    fetch('/admin/create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password, role })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('User created successfully!');
+        } else {
+            alert('Error: ' + (data.message || 'Failed to create user.'));
+        }
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('createUserModal'));
+        if (modal) modal.hide();
+        // Reset form
+        document.getElementById('create-user-form').reset();
+    })
+    .catch(() => {
+        alert('An error occurred while creating the user.');
+    });
 });
 </script>
 </body>

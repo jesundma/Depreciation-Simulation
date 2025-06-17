@@ -3,12 +3,23 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from dotenv import load_dotenv
 import os
 from services.import_service import ImportService
 from gui_web.auth import register_login_routes, login_required, admin_required
+from models import db
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Needed for flashing messages
+
+# Set SQLALCHEMY_DATABASE_URI from environment variable
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
+
+# Initialize SQLAlchemy with app
+db.init_app(app)
 
 # Register login/logout routes
 register_login_routes(app)
@@ -130,6 +141,22 @@ def search_projects():
             keys = ['project_id', 'branch', 'operations', 'description', 'depreciation_method']
             projects.append(dict(zip(keys, proj)))
     return jsonify(projects)
+
+@app.route('/admin/create-user', methods=['POST'])
+@admin_required
+def admin_create_user():
+    from services.user_service import UserService
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    role = data.get('role')
+    if not username or not password or not role:
+        return jsonify({'success': False, 'message': 'All fields are required.'}), 400
+    user, error = UserService.create_user(username, password, role)
+    if user:
+        return jsonify({'success': True, 'message': 'User created successfully.'})
+    else:
+        return jsonify({'success': False, 'message': error or 'Failed to create user.'}), 400
 
 if __name__ == '__main__':
     app.run(debug=True)
