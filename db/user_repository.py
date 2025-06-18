@@ -1,13 +1,17 @@
+from models.users import User, Role
 from models import db
-from models.users import User
 from werkzeug.security import generate_password_hash
 from sqlalchemy.exc import IntegrityError
 
 class UserRepository:
     @staticmethod
-    def create_user(username, password, role):
+    def create_user(username, password, role_name):
+        # Find the role by name
+        role = Role.query.filter_by(name=role_name).first()
+        if not role:
+            return None, f"Role '{role_name}' does not exist."
         password_hash = generate_password_hash(password)
-        user = User(username=username, password_hash=password_hash, role=role)
+        user = User(username=username, password_hash=password_hash, role_id=role.id)
         db.session.add(user)
         try:
             db.session.commit()

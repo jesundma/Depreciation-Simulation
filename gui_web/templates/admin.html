@@ -44,6 +44,41 @@
         </div>
       </div>
     </div>
+    <!-- Remove User button and modal -->
+    <button class="btn btn-danger mt-3 ms-2" data-bs-toggle="modal" data-bs-target="#removeUserModal">Remove User</button>
+    <!-- Remove User Modal -->
+    <div class="modal fade" id="removeUserModal" tabindex="-1" aria-labelledby="removeUserModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <form id="search-user-form">
+            <div class="modal-header">
+              <h5 class="modal-title" id="removeUserModalLabel">Remove Users</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="search-user" class="form-label">Username or Role (partial match allowed)</label>
+                <input type="text" class="form-control" id="search-user" name="search_user" placeholder="Enter username or role">
+              </div>
+              <div id="search-user-results" class="mt-3"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-danger">Search</button>
+            </div>
+          </form>
+          <form id="delete-users-form" style="display:none;">
+            <div class="modal-body">
+              <div id="delete-users-list"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button type="submit" class="btn btn-danger">Delete Selected Users</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
     <!-- Placeholder for user management table/list -->
     <div id="user-management-list" class="mt-4"></div>
     <a href="/" class="btn btn-secondary mt-4">&larr; Back to Home</a>
@@ -75,6 +110,63 @@ document.getElementById('create-user-form').addEventListener('submit', function(
     })
     .catch(() => {
         alert('An error occurred while creating the user.');
+    });
+});
+// Remove User functionality
+const searchUserForm = document.getElementById('search-user-form');
+const deleteUsersForm = document.getElementById('delete-users-form');
+const searchUserResults = document.getElementById('search-user-results');
+const deleteUsersList = document.getElementById('delete-users-list');
+
+searchUserForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const search = document.getElementById('search-user').value;
+    fetch(`/admin/search-users?query=${encodeURIComponent(search)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (Array.isArray(data) && data.length > 0) {
+                let html = '<form id="select-users-form">';
+                data.forEach(user => {
+                    html += `<div class='form-check'><input class='form-check-input' type='checkbox' name='user_id' value='${user.id}' id='user_${user.id}'><label class='form-check-label' for='user_${user.id}'>${user.username} (${user.role})</label></div>`;
+                });
+                html += '</form>';
+                deleteUsersList.innerHTML = html;
+                deleteUsersForm.style.display = '';
+            } else {
+                deleteUsersList.innerHTML = '<div class="alert alert-warning">No users found.</div>';
+                deleteUsersForm.style.display = 'none';
+            }
+        });
+});
+
+deleteUsersForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const checked = Array.from(deleteUsersList.querySelectorAll('input[name="user_id"]:checked')).map(cb => cb.value);
+    if (checked.length === 0) {
+        alert('No users selected.');
+        return;
+    }
+    fetch('/admin/delete-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_ids: checked })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Selected users deleted successfully!');
+        } else {
+            alert('Error: ' + (data.message || 'Failed to delete users.'));
+        }
+        // Optionally, close modal and reset forms
+        const modal = bootstrap.Modal.getInstance(document.getElementById('removeUserModal'));
+        if (modal) modal.hide();
+        searchUserForm.reset();
+        deleteUsersForm.reset();
+        deleteUsersForm.style.display = 'none';
+    })
+    .catch(() => {
+        alert('An error occurred while deleting users.');
     });
 });
 </script>

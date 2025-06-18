@@ -285,30 +285,36 @@ class DatabaseService:
     def search_projects(self, project_id=None, branch=None, operations=None, description=None):
         """
         Search for projects in the database based on optional filters.
-        :param project_id: Filter by project ID.
-        :param branch: Filter by branch.
-        :param operations: Filter by operations.
-        :param description: Filter by description.
-        :return: A list of projects matching the filters.
+        Returns projects with the depreciation method as plain text description.
         """
-        query = "SELECT * FROM projects WHERE TRUE"
+        query = """
+            SELECT 
+                projects.project_id,
+                projects.branch,
+                projects.operations,
+                projects.description,
+                depreciation_schedules.method_description AS depreciation_method
+            FROM projects
+            LEFT JOIN depreciation_schedules
+                ON projects.depreciation_method = depreciation_schedules.depreciation_id
+            WHERE TRUE
+        """
         params = []
 
         if project_id:
-            query += " AND project_id = %s"
+            query += " AND projects.project_id = %s"
             params.append(project_id)
         if branch:
-            query += " AND branch ILIKE %s"
+            query += " AND projects.branch ILIKE %s"
             params.append(f"%{branch}%")
         if operations:
-            query += " AND operations ILIKE %s"
+            query += " AND projects.operations ILIKE %s"
             params.append(f"%{operations}%")
         if description:
-            query += " AND description ILIKE %s"
+            query += " AND projects.description ILIKE %s"
             params.append(f"%{description}%")
 
         results = self.execute_query(query, params, fetch=True)
-        # Only return raw results; conversion for web should be done in the service layer
         return results
 
     def fetch_depreciation_methods(self):

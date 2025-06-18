@@ -33,10 +33,11 @@ def register_login_routes(app):
             return render_template('login.html')
         username = request.form.get('username')
         password = request.form.get('password')
-        user = USERS.get(username)
-        if user and user['password'] == password:
+        from models.users import User
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
             session['user'] = username
-            session['role'] = user['role']
+            session['role'] = user.role.name if user.role else 'user'
             return jsonify({'success': True})
         return jsonify({'success': False, 'message': 'Invalid username or password.'})
 

@@ -18,6 +18,9 @@ app.secret_key = 'your_secret_key'  # Needed for flashing messages
 # Set SQLALCHEMY_DATABASE_URI from environment variable
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
 
+#the session cookie is a browser session cookie and will be deleted when the browser is closed
+app.config['SESSION_PERMANENT'] = False
+
 # Initialize SQLAlchemy with app
 db.init_app(app)
 
@@ -157,6 +160,27 @@ def admin_create_user():
         return jsonify({'success': True, 'message': 'User created successfully.'})
     else:
         return jsonify({'success': False, 'message': error or 'Failed to create user.'}), 400
+
+@app.route('/admin/search-users')
+@admin_required
+def admin_search_users():
+    query = request.args.get('query', '')
+    from services.user_service import UserService
+    users = UserService.search_users(query)
+    # Return id, username, and role name for each user
+    return jsonify([
+        {'id': u.id, 'username': u.username, 'role': u.role.name if u.role else None}
+        for u in users
+    ])
+
+@app.route('/admin/delete-users', methods=['POST'])
+@admin_required
+def admin_delete_users():
+    data = request.get_json()
+    user_ids = data.get('user_ids', [])
+    from services.user_service import UserService
+    success, message = UserService.delete_users(user_ids)
+    return jsonify({'success': success, 'message': message})
 
 if __name__ == '__main__':
     app.run(debug=True)
