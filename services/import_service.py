@@ -1,6 +1,7 @@
 from db.database_service import DatabaseService
 import pandas as pd
 from tkinter import filedialog
+from models.project_model import Project
 
 class ImportService:
     @staticmethod
@@ -44,16 +45,11 @@ class ImportService:
         if "depreciation_method" in df.columns:
             df["depreciation_method"] = pd.to_numeric(df["depreciation_method"], errors="coerce").astype('Int64')
 
-        project_columns = ["project_id", "branch", "operations", "description", "depreciation_method"]
+        # Use Project dataclass fields for columns
+        project_columns = [field for field in Project.__dataclass_fields__]
         projects_df = df[project_columns].drop_duplicates(subset="project_id")
         projects_data = [
-            (
-                row["project_id"],
-                row["branch"],
-                row["operations"],
-                row["description"],
-                row["depreciation_method"]
-            )
+            tuple(row[col] for col in project_columns)
             for _, row in projects_df.iterrows()
         ]
         db_service = DatabaseService()

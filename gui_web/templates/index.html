@@ -9,21 +9,23 @@
     <div class="container mt-5">
         <h1>Welcome to Depreciation Simulation</h1>
         <p class="lead">Choose an action below:</p>
-        <a href="/import" class="btn btn-primary mb-2">Go to Data Import Page</a>
-        <a href="/projects" class="btn btn-outline-primary mb-2 ms-2">Go to Projects Page</a>
         {% if role == 'admin' %}
+        <a href="/import" class="btn btn-warning mb-2 ms-2">Admin: Import Data</a>
         <a href="/admin" class="btn btn-warning mb-2 ms-2">Admin: User Management</a>
         {% endif %}
+        <a href="/projects" class="btn btn-outline-primary mb-2 ms-2">Go to Projects Page</a>
+        <a href="/reports" class="btn btn-info mb-2 ms-2">Reports</a>
         <a href="/logout" class="btn btn-danger mb-2 ms-2">Logout</a>
     </div>
     <div class="container mt-5">
         <h1>Welcome</h1>
         <ul class="list-group">
-            <li class="list-group-item"><a href="/import">Import Data</a></li>
-            <li class="list-group-item"><a href="/projects">Projects</a></li>
             {% if role == 'admin' %}
+            <li class="list-group-item"><a href="/import">Admin: Import Data</a></li>
             <li class="list-group-item"><a href="/admin">Admin: User Management</a></li>
             {% endif %}
+            <li class="list-group-item"><a href="/projects">Projects</a></li>
+            <li class="list-group-item"><a href="/reports">Reports</a></li>
         </ul>
     </div>
 </body>

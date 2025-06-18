@@ -8,6 +8,7 @@ import os
 from services.import_service import ImportService
 from gui_web.auth import register_login_routes, login_required, admin_required
 from models import db
+from models.project_model import Project
 
 # Load environment variables from .env file
 load_dotenv()
@@ -35,12 +36,14 @@ def home():
     return render_template('index.html', role=role)
 
 @app.route('/import')
+@admin_required
 def import_page():
     return render_template('import.html')
 
 @app.route('/projects')
 def projects_page():
-    return render_template('projects.html')
+    project_fields = list(Project.__dataclass_fields__.keys())
+    return render_template('projects.html', project_fields=project_fields)
 
 @app.route('/admin')
 @admin_required
@@ -181,6 +184,11 @@ def admin_delete_users():
     from services.user_service import UserService
     success, message = UserService.delete_users(user_ids)
     return jsonify({'success': success, 'message': message})
+
+@app.route('/reports')
+@login_required
+def reports_page():
+    return render_template('reports.html')
 
 if __name__ == '__main__':
     app.run(debug=True)

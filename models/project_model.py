@@ -8,6 +8,7 @@ class Project:
     operations: str
     description: str
     depreciation_method: int  # Foreign key referencing depreciation_schedules(depreciation_id)
+    cost_center: int  # Cost center for the project
 
 @dataclass
 class ProjectClassification:

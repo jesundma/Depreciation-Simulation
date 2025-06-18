@@ -29,22 +29,12 @@
           </div>
           <div class="modal-body">
             <form id="search-projects-form">
-              <div class="mb-3">
-                <label for="search-project-id" class="form-label">Project Id</label>
-                <input type="text" class="form-control" id="search-project-id" name="project_id" placeholder="Enter Project Id">
-              </div>
-              <div class="mb-3">
-                <label for="search-branch" class="form-label">Branch</label>
-                <input type="text" class="form-control" id="search-branch" name="branch" placeholder="Enter Branch">
-              </div>
-              <div class="mb-3">
-                <label for="search-operations" class="form-label">Operations</label>
-                <input type="text" class="form-control" id="search-operations" name="operations" placeholder="Enter Operations">
-              </div>
-              <div class="mb-3">
-                <label for="search-description" class="form-label">Description</label>
-                <input type="text" class="form-control" id="search-description" name="description" placeholder="Enter Description">
-              </div>
+              {% for field in project_fields %}
+                <div class="mb-3">
+                  <label for="search-{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
+                  <input type="text" class="form-control" id="search-{{ field }}" name="{{ field }}" placeholder="Enter {{ field.replace('_', ' ').title() }}">
+                </div>
+              {% endfor %}
             </form>
           </div>
           <div class="modal-footer">
@@ -80,6 +70,9 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+    // Make project_fields available in JS (Jinja2 block for correct placement)
+    var projectFields = {{ project_fields|tojson|safe }};
+
     // Search and display results with checkboxes
     document.getElementById('search-projects-btn').addEventListener('click', function() {
       const form = document.getElementById('search-projects-form');
@@ -95,16 +88,18 @@
           if (!Array.isArray(data) || data.length === 0) {
             html = '<div class="alert alert-warning">No projects found.</div>';
           } else {
-            html += '<table class="table table-bordered"><thead><tr><th></th><th>Project Id</th><th>Branch</th><th>Operations</th><th>Description</th><th>Depreciation Method</th></tr></thead><tbody>';
+            html += '<table class="table table-bordered"><thead><tr><th></th>';
+            projectFields.forEach(function(field) {
+              html += `<th>${field.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</th>`;
+            });
+            html += '</tr></thead><tbody>';
             data.forEach(function(proj) {
               if (typeof proj !== 'object' || proj === null) return;
               html += '<tr>';
               html += `<td><input type="checkbox" name="project_id" value="${proj.project_id ?? proj['project_id'] ?? ''}"></td>`;
-              html += `<td>${proj.project_id ?? proj['project_id'] ?? ''}</td>`;
-              html += `<td>${proj.branch ?? proj['branch'] ?? ''}</td>`;
-              html += `<td>${proj.operations ?? proj['operations'] ?? ''}</td>`;
-              html += `<td>${proj.description ?? proj['description'] ?? ''}</td>`;
-              html += `<td>${proj.depreciation_method ?? proj['depreciation_method'] ?? ''}</td>`;
+              projectFields.forEach(function(field) {
+                html += `<td>${proj[field] ?? ''}</td>`;
+              });
               html += '</tr>';
             });
             html += '</tbody></table>';

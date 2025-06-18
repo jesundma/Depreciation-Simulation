@@ -577,13 +577,14 @@ class DatabaseService:
                     # Now upsert projects
                     from psycopg2.extras import execute_values
                     query_upsert = """
-                        INSERT INTO projects (project_id, branch, operations, description, depreciation_method)
+                        INSERT INTO projects (project_id, branch, operations, description, depreciation_method, cost_center)
                         VALUES %s
                         ON CONFLICT (project_id) DO UPDATE
                         SET branch = EXCLUDED.branch,
                             operations = EXCLUDED.operations,
                             description = EXCLUDED.description,
-                            depreciation_method = EXCLUDED.depreciation_method;
+                            depreciation_method = EXCLUDED.depreciation_method,
+                            cost_center = EXCLUDED.cost_center;
                     """
                     execute_values(cur, query_upsert, sanitized_projects)
                     conn.commit()
