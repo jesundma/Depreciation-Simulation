@@ -4,6 +4,51 @@
     <meta charset="UTF-8">
     <title>Projects</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+      /* Responsive modal table: columns auto-width, no wrap, scroll if needed */
+      #investment-modal-table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+      }
+      #investment-modal-table table {
+        table-layout: auto;
+        width: auto;
+        min-width: 600px;
+        max-width: none;
+      }
+      #investment-modal-table th, #investment-modal-table td {
+        white-space: nowrap;
+        text-align: center;
+        vertical-align: middle;
+        min-width: 120px;
+      }
+      .modal-lg {
+        max-width: 95vw;
+      }
+      /* Also apply to tabbed project tables */
+      .investment-tab-table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+      }
+      .investment-tab-table {
+        table-layout: auto;
+        width: auto;
+        min-width: 600px;
+        max-width: none;
+      }
+      .investment-tab-table th, .investment-tab-table td {
+        white-space: nowrap;
+        text-align: center;
+        vertical-align: middle;
+        min-width: 200px; /* Further increased for full data display */
+      }
+      .investment-tab-table input.form-control {
+        width: 100%;
+        min-width: 200px;
+        display: block;
+        box-sizing: border-box;
+      }
+    </style>
 </head>
 <body>
     <div class="container mt-5">
@@ -68,10 +113,33 @@
       </div>
     </div>
 
+    <!-- Investment/Depreciation Edit Modal -->
+    <div class="modal fade" id="investmentModal" tabindex="-1" aria-labelledby="investmentModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="investmentModalLabel">Edit Investments & Depreciation</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <form id="investment-modal-form">
+              <div id="investment-modal-table-wrapper">
+                <div id="investment-modal-table"></div>
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-primary" id="save-investment-modal-btn">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     // Make project_fields available in JS (Jinja2 block for correct placement)
-    var projectFields = {{ project_fields|tojson|safe }};
+    var projectFields = {{ project_fields | tojson | safe }};
 
     // Search and display results with checkboxes
     document.getElementById('search-projects-btn').addEventListener('click', function() {
@@ -171,11 +239,21 @@
               <div class="mb-3"><label>Operations</label><input class="form-control" name="operations" value="${proj.operations ?? ''}"></div>
               <div class="mb-3"><label>Description</label><input class="form-control" name="description" value="${proj.description ?? ''}"></div>
               <div class="mb-3"><label>Depreciation Method</label><input class="form-control" name="depreciation_method" value="${proj.depreciation_method ?? ''}"></div>
-              <button type="submit" class="btn btn-success">Save Changes</button>
+              <hr>
+              <h5>Investments & Depreciation Starts</h5>
+              <div id="investment-table-${projectId}"></div>
+              <button type="button" class="btn btn-outline-primary mt-2" onclick="openInvestmentModal('${projectId}')">Edit Investments/Depreciation</button>
+              <button type="submit" class="btn btn-success mt-3 ms-2">Save Changes</button>
               <button type="button" class="btn btn-danger ms-2" onclick="deleteProject('${projectId}')">Delete Project</button>
             </form>
           `;
           tabContent.appendChild(tabPane);
+          // Fetch investments and render table
+          fetch(`/project-investments/${projectId}`)
+            .then(response => response.json())
+            .then(investments => {
+              renderInvestmentTableForProject(projectId, investments, true); // true = read-only
+            });
           // Activate new tab
           const tab = new bootstrap.Tab(document.getElementById(tabId));
           tab.show();
@@ -214,6 +292,156 @@
       alert('Deleting project ' + projectId);
       closeProjectTab(projectId);
     }
+
+    // Investment & Depreciation Table for Project Tab
+    function renderInvestmentTableForProject(projectId, investments = [], readOnly = false) {
+      const years = investments.years || investments.years || [];
+      const data = investments.investments || investments || [];
+      const invMap = {};
+      const deprStartMap = {};
+      const deprMonthMap = {};
+      data.forEach(inv => {
+        if (inv.investment_amount !== undefined && inv.investment_amount !== null) {
+          invMap[inv.year] = inv.investment_amount;
+        }
+        if (inv.start_year !== undefined && inv.start_year !== null) {
+          deprStartMap[inv.year] = true;
+          if (inv.month !== undefined && inv.month !== null) {
+            deprMonthMap[inv.year] = inv.month;
+          }
+        }
+      });
+      let html = '<div class="investment-tab-table-wrapper">';
+      html += '<table class="table table-bordered text-center investment-tab-table">';
+      html += '<thead><tr>';
+      years.forEach(year => {
+        html += `<th>${year}</th>`;
+      });
+      html += '</tr></thead><tbody>';
+      // Investment row
+      html += '<tr>';
+      years.forEach(year => {
+        html += `<td><input type="number" class="form-control" name="investment_${year}" placeholder="Investment" value="${invMap[year] ?? ''}" ${readOnly ? 'readonly tabindex="-1"' : ''}></td>`;
+      });
+      html += '</tr>';
+      // Depreciation start year row (tickboxes)
+      html += '<tr>';
+      years.forEach(year => {
+        html += `<td><input type="checkbox" class="form-check-input" name="depr_start_${year}" ${deprStartMap[year] ? 'checked' : ''} ${readOnly ? 'disabled tabindex="-1"' : ''}></td>`;
+      });
+      html += '</tr>';
+      // Depreciation start month row (input only if ticked)
+      html += '<tr>';
+      years.forEach(year => {
+        html += `<td id="month-cell-${projectId}-${year}">`;
+        if (deprStartMap[year]) {
+          html += `<input type="number" min="1" max="12" class="form-control" name="depr_month_${year}" placeholder="Month" value="${deprMonthMap[year] ?? ''}" ${readOnly ? 'readonly tabindex="-1"' : ''}>`;
+        }
+        html += '</td>';
+      });
+      html += '</tr>';
+      html += '</tbody></table></div>';
+      document.getElementById(`investment-table-${projectId}`).innerHTML = html;
+    }
+    window.toggleMonthInputForProject = function(projectId, year, checked) {
+      const cell = document.getElementById(`month-cell-${projectId}-${year}`);
+      if (checked) {
+        cell.innerHTML = `<input type="number" min="1" max="12" class="form-control" name="depr_month_${year}" placeholder="Month">`;
+      } else {
+        cell.innerHTML = '';
+      }
+    }
+
+    // Modal logic
+    window.openInvestmentModal = function(projectId) {
+      // Fetch data and populate modal
+      fetch(`/project-investments/${projectId}`)
+        .then(response => response.json())
+        .then(data => {
+          renderInvestmentModalTable(projectId, data);
+          // Store projectId for save
+          document.getElementById('investmentModal').setAttribute('data-project-id', projectId);
+          const modal = new bootstrap.Modal(document.getElementById('investmentModal'));
+          modal.show();
+        });
+    }
+    // In renderInvestmentModalTable, set table id for CSS
+    function renderInvestmentModalTable(projectId, data) {
+      const years = data.years || [];
+      const investments = data.investments || [];
+      const invMap = {};
+      const deprStartMap = {};
+      const deprMonthMap = {};
+      investments.forEach(inv => {
+        if (inv.investment_amount !== undefined && inv.investment_amount !== null) {
+          invMap[inv.year] = inv.investment_amount;
+        }
+        if (inv.start_year !== undefined && inv.start_year !== null) {
+          deprStartMap[inv.year] = true;
+          if (inv.month !== undefined && inv.month !== null) {
+            deprMonthMap[inv.year] = inv.month;
+          }
+        }
+      });
+      let html = '<table class="table table-bordered text-center" id="investment-modal-table-table"><thead><tr>';
+      years.forEach(year => {
+        html += `<th>${year}</th>`;
+      });
+      html += '</tr></thead><tbody>';
+      // Investment row
+      html += '<tr>';
+      years.forEach(year => {
+        html += `<td><input type="number" class="form-control" name="investment_${year}" placeholder="Investment" value="${invMap[year] ?? ''}"></td>`;
+      });
+      html += '</tr>';
+      // Depreciation start year row (tickboxes)
+      html += '<tr>';
+      years.forEach(year => {
+        html += `<td><input type="checkbox" class="form-check-input" name="depr_start_${year}" onchange="toggleMonthInputModal(${year}, this.checked)" ${deprStartMap[year] ? 'checked' : ''}></td>`;
+      });
+      html += '</tr>';
+      // Depreciation start month row (input only if ticked)
+      html += '<tr>';
+      years.forEach(year => {
+        html += `<td id="modal-month-cell-${year}">`;
+        if (deprStartMap[year]) {
+          html += `<input type="number" min="1" max="12" class="form-control" name="depr_month_${year}" placeholder="Month" value="${deprMonthMap[year] ?? ''}">`;
+        }
+        html += '</td>';
+      });
+      html += '</tr>';
+      html += '</tbody></table>';
+      document.getElementById('investment-modal-table').innerHTML = html;
+    }
+    window.toggleMonthInputModal = function(year, checked) {
+      const cell = document.getElementById(`modal-month-cell-${year}`);
+      if (checked) {
+        cell.innerHTML = `<input type="number" min="1" max="12" class="form-control" name="depr_month_${year}" placeholder="Month">`;
+      } else {
+        cell.innerHTML = '';
+      }
+    }
+
+    // Save button handler (ready for backend integration)
+    document.getElementById('save-investment-modal-btn').addEventListener('click', function() {
+      const form = document.getElementById('investment-modal-form');
+      const data = Object.fromEntries(new FormData(form).entries());
+      const projectId = document.getElementById('investmentModal').getAttribute('data-project-id');
+      // TODO: Send data to backend endpoint for saving
+      alert('Saving investments for project ' + projectId + ':\n' + JSON.stringify(data, null, 2));
+      // Optionally close modal
+      const modal = bootstrap.Modal.getInstance(document.getElementById('investmentModal'));
+      if (modal) modal.hide();
+      // Refresh the tab table if open
+      const tabTableDiv = document.getElementById(`investment-table-${projectId}`);
+      if (tabTableDiv) {
+        fetch(`/project-investments/${projectId}`)
+          .then(response => response.json())
+          .then(investments => {
+            renderInvestmentTableForProject(projectId, investments, true);
+          });
+      }
+    });
     </script>
 </body>
 </html>

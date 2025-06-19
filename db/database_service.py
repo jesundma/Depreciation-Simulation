@@ -113,13 +113,14 @@ class DatabaseService:
         """
         Fetch the investment schedule for a given project ID.
         :param project_id: The ID of the project.
-        :return: A list of investments with year, amount, and depreciation start year.
+        :return: A list of investments with year, amount, depreciation start year, and start month.
         """
         query = """
         SELECT 
             COALESCE(idp.start_year, i.year) AS year, 
             i.investment_amount, 
-            idp.start_year AS start_year
+            idp.start_year AS start_year,
+            idp.start_month AS month
         FROM investment_depreciation_periods idp
         FULL OUTER JOIN investments i
         ON idp.project_id = i.project_id AND idp.start_year = i.year
@@ -913,7 +914,7 @@ class DatabaseService:
                 tc.description AS type_description,
                 p.description AS project_description
             FROM 
-                project_classifications pc
+                project_classfifications pc
             JOIN 
                 projects p ON pc.project_id = p.project_id
             JOIN 

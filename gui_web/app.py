@@ -190,5 +190,22 @@ def admin_delete_users():
 def reports_page():
     return render_template('reports.html')
 
+@app.route('/project-investments/<project_id>')
+@login_required
+def get_project_investments(project_id):
+    """
+    Returns investment and depreciation data for a given project as JSON.
+    """
+    from services.project_management_service import ProjectManagementService
+    data = ProjectManagementService.get_project_investments(project_id)
+    return jsonify(data)
+
+@app.route('/project-depreciations/<project_id>')
+@login_required
+def get_project_depreciations(project_id):
+    from services.project_management_service import ProjectManagementService
+    data = ProjectManagementService.get_project_depreciations(project_id)
+    return jsonify(data)
+
 if __name__ == '__main__':
     app.run(debug=True)
