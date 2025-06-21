@@ -207,5 +207,52 @@ def get_project_depreciations(project_id):
     data = ProjectManagementService.get_project_depreciations(project_id)
     return jsonify(data)
 
+@app.route('/api/projects/<project_id>/calculate-depreciations', methods=['POST'])
+@login_required
+def calculate_depreciations(project_id):
+    try:
+        # Call the existing calculation service
+        from services.calculation_service import CalculationService
+        result = CalculationService.handle_depreciation_calculation(project_id)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/projects/<project_id>/recalculate-depreciations', methods=['POST'])
+@login_required
+def recalculate_depreciations(project_id):
+    try:
+        # First delete existing depreciations
+        from db.database_service import DatabaseService
+        db_service = DatabaseService()
+        
+        # Execute a direct query to delete existing depreciations
+        query = "DELETE FROM calculated_depreciations WHERE project_id = %s"
+        db_service.execute_query(query, (project_id,))
+          # Then calculate new ones
+        from services.calculation_service import CalculationService
+        result = CalculationService.handle_depreciation_calculation(project_id)
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/projects/<project_id>/has-calculated-depreciations')
+@login_required
+def has_calculated_depreciations(project_id):
+    try:
+        from db.database_service import DatabaseService
+        db_service = DatabaseService()
+          # Use the existing query from database_service.py
+        has_depreciations = db_service.has_calculated_depreciations(project_id)
+        
+        # For now, force to False as requested
+        return jsonify({'has_calculated_depreciations': False})
+        # When ready to use actual database result, uncomment the following line and delete the line above
+        # return jsonify({'has_calculated_depreciations': has_depreciations})
+    except Exception as e:
+        return jsonify({'has_calculated_depreciations': False, 'error': str(e)})
+
 if __name__ == '__main__':
     app.run(debug=True)
