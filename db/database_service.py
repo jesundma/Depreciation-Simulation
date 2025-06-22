@@ -346,8 +346,7 @@ class DatabaseService:
         params = (project_id,)
         result = self.execute_query(query, params, fetch=True)
 
-        # Debug: Print the query result to inspect its structure
-        print("[DEBUG] Query result for has_calculated_depreciations:", result)
+        # Debug: Print the query result to inspect its structure        print("[DEBUG] Query result for has_calculated_depreciations:", result)
 
         # Handle cases where results might be None or unexpected
         if result and isinstance(result, list) and len(result) > 0:
@@ -356,10 +355,11 @@ class DatabaseService:
                 return bool(result[0]['exists'])
             elif isinstance(result[0], tuple):
                 return bool(result[0][0])  # Fallback for tuple-based results
-    
+                
         # If no valid result is found, return False without treating it as an error
         print("[INFO] No calculated depreciations found or unexpected result structure.")
         return False
+        
     def get_depreciation_method_details(self, project_id):
         """
         Fetch the depreciation method details (percentage and years) for a given project ID.

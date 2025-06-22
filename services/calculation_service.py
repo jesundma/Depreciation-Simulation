@@ -33,18 +33,22 @@ class CalculationService:
             try:
                 CalculationService.handle_depreciation_calculation(project_id)
             except Exception as e:
-                print(f"[ERROR] Failed to calculate depreciation for project ID {project_id}: {e}")
-
-    @staticmethod
+                print(f"[ERROR] Failed to calculate depreciation for project ID {project_id}: {e}")    @staticmethod
     def handle_depreciation_calculation(project_id: str):
         """
         Handle the depreciation calculation by determining the method type and calling the appropriate function.
         """
-        method_type = CalculationService.get_depreciation_method_type(project_id)
-        if method_type == "percentage":
-            CalculationService.calculate_depreciation_percentage(project_id)
-        elif method_type == "years":
-            CalculationService.calculate_depreciation_years(project_id)
+        try:
+            method_type = CalculationService.get_depreciation_method_type(project_id)
+            print(f"[DEBUG] Detected depreciation method type: {method_type}")
+            return method_type
+        except Exception as e:
+            print(f"[ERROR] Error in handle_depreciation_calculation: {str(e)}")
+            raise  # Re-raise the exception to be handled by the caller
+#        if method_type == "percentage":
+#            CalculationService.calculate_depreciation_percentage(project_id)
+#        elif method_type == "years":
+#            CalculationService.calculate_depreciation_years(project_id)
 
     @staticmethod
     def get_depreciation_method_type(project_id: str) -> str:
@@ -53,13 +57,20 @@ class CalculationService:
         """
         db_service = DatabaseService()
         method_details = db_service.get_depreciation_method_details(project_id)
-        # Assuming method_details is a tuple: (depreciation_percentage, depreciation_years)
-        if method_details is not None and len(method_details) > 0 and method_details[0] is not None:
+        
+        if method_details is None:
+            raise ValueError(f"No depreciation method configured for project ID: {project_id}")
+            
+        # Check if percentage method is configured
+        if 'depreciation_percentage' in method_details and method_details['depreciation_percentage'] is not None:
             return "percentage"
-        elif method_details is not None and len(method_details) > 1 and method_details[1] is not None:
-            return "years"
+        
+        # Check if years method is configured
+        elif 'depreciation_years' in method_details and method_details['depreciation_years'] is not None:            return "years"
+        
+        # No valid method configured
         else:
-            raise ValueError("Invalid depreciation method configuration.")
+            raise ValueError(f"Project has invalid depreciation method configuration")
 
     @staticmethod
     def get_investment_dataframe(project_id: str) -> pd.DataFrame:

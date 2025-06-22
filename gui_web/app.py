@@ -213,9 +213,14 @@ def calculate_depreciations(project_id):
     try:
         # Call the existing calculation service
         from services.calculation_service import CalculationService
-        result = CalculationService.handle_depreciation_calculation(project_id)
+        method_type = CalculationService.handle_depreciation_calculation(project_id)
         
-        return jsonify({'success': True})
+        # Return the method_type for debugging
+        return jsonify({
+            'success': True, 
+            'method_type': method_type,
+            'message': f"Debug info: Depreciation method type is '{method_type}'"
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -226,15 +231,20 @@ def recalculate_depreciations(project_id):
         # First delete existing depreciations
         from db.database_service import DatabaseService
         db_service = DatabaseService()
-        
-        # Execute a direct query to delete existing depreciations
+          # Execute a direct query to delete existing depreciations
         query = "DELETE FROM calculated_depreciations WHERE project_id = %s"
         db_service.execute_query(query, (project_id,))
-          # Then calculate new ones
-        from services.calculation_service import CalculationService
-        result = CalculationService.handle_depreciation_calculation(project_id)
         
-        return jsonify({'success': True})
+        # Then calculate new ones
+        from services.calculation_service import CalculationService
+        method_type = CalculationService.handle_depreciation_calculation(project_id)
+        
+        # Return the method_type for debugging
+        return jsonify({
+            'success': True,
+            'method_type': method_type,
+            'message': f"Debug info: Depreciation method type is '{method_type}'"
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
