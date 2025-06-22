@@ -1,4 +1,4 @@
-from db.database_service import DatabaseService
+from db.repository_factory import RepositoryFactory
 import pandas as pd
 
 class CalculationService:
@@ -7,7 +7,10 @@ class CalculationService:
         """
         Calculate percentage-based depreciation for a project up to the year 2040.
         """
-        db_service = DatabaseService()
+        # Use repository factory to get repository instances
+        investment_repo = RepositoryFactory.create_investment_repository()
+        depreciation_repo = RepositoryFactory.create_depreciation_repository()
+        
         df = CalculationService.get_investment_dataframe(project_id)
         df.columns = df.columns.str.lower()
         # ...existing code for percentage-based depreciation...
@@ -17,7 +20,10 @@ class CalculationService:
         """
         Calculate years-based depreciation for a project up to the year 2040.
         """
-        db_service = DatabaseService()
+        # Use repository factory to get repository instances
+        investment_repo = RepositoryFactory.create_investment_repository()
+        depreciation_repo = RepositoryFactory.create_depreciation_repository()
+        
         df = CalculationService.get_investment_dataframe(project_id)
         df.columns = df.columns.str.lower()
         # ...existing code for years-based depreciation...
@@ -27,43 +33,50 @@ class CalculationService:
         """
         Calculate depreciation for all projects sequentially.
         """
-        db_service = DatabaseService()
-        project_ids = db_service.get_all_project_ids()
+        # Use repository factory to get project repository
+        project_repo = RepositoryFactory.create_project_repository()
+        
+        project_ids = project_repo.get_all_project_ids()
         for project_id in project_ids:
-            try:                CalculationService.handle_depreciation_calculation(project_id)
+            try:
+                CalculationService.handle_depreciation_calculation(project_id)
             except Exception as e:
                 print(f"[ERROR] Failed to calculate depreciation for project ID {project_id}: {e}")
                 
     @staticmethod
     def handle_depreciation_calculation(project_id: str):
-        """        Handle the depreciation calculation by determining the method type and calling the appropriate function.
+        """
+        Handle the depreciation calculation by determining the method type and calling the appropriate function.
         """
         try:
             method_type = CalculationService.get_depreciation_method_type(project_id)
             print(f"[DEBUG] Detected depreciation method type: {method_type}")
-            
-            if method_type == "percentage":
-                CalculationService.calculate_depreciation_percentage(project_id)
-            elif method_type == "years":
-                CalculationService.calculate_depreciation_years(project_id)
             return method_type
         except Exception as e:
             print(f"[ERROR] Error in handle_depreciation_calculation: {str(e)}")
             raise  # Re-raise the exception to be handled by the caller
+#        if method_type == "percentage":
+#            CalculationService.calculate_depreciation_percentage(project_id)
+#        elif method_type == "years":
+#            CalculationService.calculate_depreciation_years(project_id)
 
     @staticmethod
     def get_depreciation_method_type(project_id: str) -> str:
         """
         Determine the type of depreciation method for the given project.
         """
-        db_service = DatabaseService()
-        method_details = db_service.get_depreciation_method_details(project_id)
+        # Use repository factory to get depreciation repository
+        depreciation_repo = RepositoryFactory.create_depreciation_repository()
+        
+        method_details = depreciation_repo.get_depreciation_method_details(project_id)
         
         if method_details is None:
             raise ValueError(f"No depreciation method configured for project ID: {project_id}")
-              # Check if percentage method is configured
+            
+        # Check if percentage method is configured
         if 'depreciation_percentage' in method_details and method_details['depreciation_percentage'] is not None:
             return "percentage"
+        
         # Check if years method is configured
         elif 'depreciation_years' in method_details and method_details['depreciation_years'] is not None:            
             return "years"
@@ -77,7 +90,9 @@ class CalculationService:
         """
         Fetch and preprocess investment data for a project.
         """
-        db_service = DatabaseService()
-        investment_data = db_service.get_investment_schedule(project_id)
+        # Use repository factory to get investment repository
+        investment_repo = RepositoryFactory.create_investment_repository()
+        
+        investment_data = investment_repo.get_investment_schedule(project_id)
         # ...existing code for preprocessing investment data...
         return pd.DataFrame(investment_data)

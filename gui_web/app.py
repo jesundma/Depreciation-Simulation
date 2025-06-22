@@ -128,25 +128,39 @@ def search_projects():
     operations = request.args.get('operations')
     description = request.args.get('description')
     from services.project_management_service import ProjectManagementService
-    results = ProjectManagementService.search_projects(
-        project_id=project_id or None,
-        branch=branch or None,
-        operations=operations or None,
-        description=description or None
-    )
-    # Convert results to dicts for JSON serialization
-    projects = []
-    for proj in results:
-        # If proj is a Project instance, convert to dict
-        if hasattr(proj, '__dict__'):
-            projects.append(proj.__dict__)
-        elif isinstance(proj, dict):
-            projects.append(proj)
-        elif isinstance(proj, (list, tuple)):
-            # Fallback: try to map to keys
-            keys = ['project_id', 'branch', 'operations', 'description', 'depreciation_method']
-            projects.append(dict(zip(keys, proj)))
-    return jsonify(projects)
+    try:
+        results = ProjectManagementService.search_projects(
+            project_id=project_id or None,
+            branch=branch or None,
+            operations=operations or None,
+            description=description or None
+        )
+        # Convert results to dicts for JSON serialization
+        project_fields = list(Project.__dataclass_fields__.keys())
+        projects = []
+        for proj in results:
+            # If proj is a Project instance, convert to dict
+            if hasattr(proj, '__dict__'):
+                proj_dict = proj.__dict__
+            elif isinstance(proj, dict):
+                proj_dict = proj
+            elif isinstance(proj, (list, tuple)):
+                # Fallback: try to map to keys
+                keys = project_fields
+                proj_dict = dict(zip(keys[:len(proj)], proj))
+            else:
+                continue  # Skip this item if we can't convert it
+                
+            # Ensure all expected fields exist
+            for field in project_fields:
+                if field not in proj_dict:
+                    proj_dict[field] = None
+                    
+            projects.append(proj_dict)
+        return jsonify(projects)
+    except Exception as e:
+        app.logger.error(f"Error in search_projects: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/admin/create-user', methods=['POST'])
 @admin_required

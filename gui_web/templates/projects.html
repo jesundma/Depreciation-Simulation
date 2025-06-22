@@ -71,9 +71,11 @@
           <div class="modal-header">
             <h5 class="modal-title" id="searchModalLabel">Search Projects</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body">
+          </div>          <div class="modal-body">
             <form id="search-projects-form">
+              <div class="alert alert-info">
+                Enter search criteria to filter projects. Leave all fields empty to view all projects.
+              </div>
               {% for field in project_fields %}
                 <div class="mb-3">
                   <label for="search-{{ field }}" class="form-label">{{ field.replace('_', ' ').title() }}</label>
@@ -142,15 +144,29 @@
     var projectFields = {{ project_fields | tojson | safe }};
 
     // Search and display results with checkboxes
-    document.getElementById('search-projects-btn').addEventListener('click', function() {
-      const form = document.getElementById('search-projects-form');
+    document.getElementById('search-projects-btn').addEventListener('click', function() {      const form = document.getElementById('search-projects-form');
       const formData = new FormData(form);
       const params = new URLSearchParams();
+      
       for (const [key, value] of formData.entries()) {
-        params.append(key, value);
+        if (value.trim()) {
+          params.append(key, value);
+        }
       }
+      
+      // Show loading indicator
+      document.getElementById('search-results-container').innerHTML = 
+        '<div class="text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div><p>Searching...</p></div>';
+      const resultsModal = new bootstrap.Modal(document.getElementById('resultsModal'));
+      resultsModal.show();
+      
       fetch(`/search-projects?${params.toString()}`)
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Server returned status ${response.status}: ${response.statusText}`);
+          }
+          return response.json();
+        })
         .then(data => {
           let html = '';
           if (!Array.isArray(data) || data.length === 0) {
@@ -160,13 +176,12 @@
             projectFields.forEach(function(field) {
               html += `<th>${field.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</th>`;
             });
-            html += '</tr></thead><tbody>';
-            data.forEach(function(proj) {
+            html += '</tr></thead><tbody>';            data.forEach(function(proj) {
               if (typeof proj !== 'object' || proj === null) return;
               html += '<tr>';
-              html += `<td><input type="checkbox" name="project_id" value="${proj.project_id ?? proj['project_id'] ?? ''}"></td>`;
+              html += `<td><input type="checkbox" name="project_id" value="${proj.project_id || ''}"></td>`;
               projectFields.forEach(function(field) {
-                html += `<td>${proj[field] ?? ''}</td>`;
+                html += `<td>${proj[field] || ''}</td>`;
               });
               html += '</tr>';
             });
@@ -178,15 +193,16 @@
           if (searchModal) searchModal.hide();
           const resultsModal = new bootstrap.Modal(document.getElementById('resultsModal'));
           resultsModal.show();
-        })
-        .catch(err => {
-          document.getElementById('search-results-container').innerHTML = '<div class="alert alert-danger">Error fetching results: ' + err + '</div>';
-          const resultsModal = new bootstrap.Modal(document.getElementById('resultsModal'));
+        })        .catch(err => {
+          console.error('Search error:', err);
+          document.getElementById('search-results-container').innerHTML = 
+            '<div class="alert alert-danger">Error fetching results: ' + err.message + '</div>';
+          // Ensure the results modal is showing the error
+          const resultsModal = bootstrap.Modal.getInstance(document.getElementById('resultsModal')) || 
+                               new bootstrap.Modal(document.getElementById('resultsModal'));
           resultsModal.show();
         });
-    });
-
-    // Handle opening selected projects in tabs
+    });    // Handle opening selected projects in tabs
     document.getElementById('select-projects-form').addEventListener('submit', function(e) {
       e.preventDefault();
       const checked = Array.from(document.querySelectorAll('#search-results-container input[name="project_id"]:checked')).map(cb => cb.value);
@@ -194,13 +210,26 @@
         alert('No projects selected.');
         return;
       }
-      // For each selected project, fetch details and open in a tab
-      checked.forEach(projectId => {
-        openProjectTab(projectId);
-      });
-      // Close results modal
+      
+      // Close results modal first to prevent UI freezing
       const resultsModal = bootstrap.Modal.getInstance(document.getElementById('resultsModal'));
-      if (resultsModal) resultsModal.hide();
+      if (resultsModal) {
+        resultsModal.hide();
+        // Remove the modal backdrop manually if it persists
+        const modalBackdrops = document.querySelectorAll('.modal-backdrop');
+        modalBackdrops.forEach(backdrop => backdrop.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      }
+      
+      // Add a small delay before opening tabs to ensure modal is fully closed
+      setTimeout(() => {
+        // For each selected project, fetch details and open in a tab
+        checked.forEach(projectId => {
+          openProjectTab(projectId);
+        });
+      }, 300);
     });
 
     // Tab management
@@ -221,24 +250,22 @@
           const tabId = 'tab-' + projectId;
           const contentId = 'tab-content-' + projectId;
           const tabList = document.getElementById('projectTabs');
-          const tabContent = document.getElementById('projectTabContent');
-          // Tab
+          const tabContent = document.getElementById('projectTabContent');          // Tab
           const tabLi = document.createElement('li');
           tabLi.className = 'nav-item';
-          tabLi.innerHTML = `<button class="nav-link" id="${tabId}" data-bs-toggle="tab" data-bs-target="#${contentId}" type="button" role="tab" aria-controls="${contentId}" aria-selected="false">Project ${proj.project_id} <span class="ms-2 text-danger" style="cursor:pointer;" onclick="closeProjectTab('${projectId}')">&times;</span></button>`;
+          tabLi.innerHTML = `<button class="nav-link" id="${tabId}" data-bs-toggle="tab" data-bs-target="#${contentId}" type="button" role="tab" aria-controls="${contentId}" aria-selected="false">Project ${proj.project_id || ''} <span class="ms-2 text-danger" style="cursor:pointer;" onclick="event.stopPropagation(); closeProjectTab('${projectId}');">&times;</span></button>`;
           tabList.appendChild(tabLi);
           // Content
           const tabPane = document.createElement('div');
           tabPane.className = 'tab-pane fade';
           tabPane.id = contentId;
-          tabPane.setAttribute('role', 'tabpanel');
-          tabPane.innerHTML = `
+          tabPane.setAttribute('role', 'tabpanel');          tabPane.innerHTML = `
             <form class="mt-3" onsubmit="saveProject(event, '${projectId}')">
-              <div class="mb-3"><label>Project Id</label><input class="form-control" name="project_id" value="${proj.project_id}" readonly></div>
-              <div class="mb-3"><label>Branch</label><input class="form-control" name="branch" value="${proj.branch ?? ''}"></div>
-              <div class="mb-3"><label>Operations</label><input class="form-control" name="operations" value="${proj.operations ?? ''}"></div>
-              <div class="mb-3"><label>Description</label><input class="form-control" name="description" value="${proj.description ?? ''}"></div>
-              <div class="mb-3"><label>Depreciation Method</label><input class="form-control" name="depreciation_method" value="${proj.depreciation_method ?? ''}"></div>
+              <div class="mb-3"><label>Project Id</label><input class="form-control" name="project_id" value="${proj.project_id || ''}" readonly></div>
+              <div class="mb-3"><label>Branch</label><input class="form-control" name="branch" value="${proj.branch || ''}"></div>
+              <div class="mb-3"><label>Operations</label><input class="form-control" name="operations" value="${proj.operations || ''}"></div>
+              <div class="mb-3"><label>Description</label><input class="form-control" name="description" value="${proj.description || ''}"></div>
+              <div class="mb-3"><label>Depreciation Method</label><input class="form-control" name="depreciation_method" value="${proj.depreciation_method || ''}"></div>
               <hr>
               <h5>Investments & Depreciation Starts</h5>              <div id="investment-table-${projectId}"></div>
               <button type="button" class="btn btn-outline-primary mt-2" onclick="openInvestmentModal('${projectId}')">Edit Investments/Depreciation</button>
@@ -255,29 +282,51 @@
             .then(investments => {
               renderInvestmentTableForProject(projectId, investments, true); // true = read-only
             });
-          
-          // Load depreciation buttons
+            // Load depreciation buttons
           loadDepreciationButtons(projectId);
           
-          // Activate new tab
-          const tab = new bootstrap.Tab(document.getElementById(tabId));
-          tab.show();
+          // Activate new tab after a short delay to ensure DOM is updated
+          setTimeout(() => {
+            try {
+              const tabButton = document.getElementById(tabId);
+              if (tabButton) {
+                const tab = new bootstrap.Tab(tabButton);
+                tab.show();
+              }
+            } catch (err) {
+              console.error('Error activating tab:', err);
+            }
+          }, 100);
+        })
+        .catch(err => {
+          console.error('Error opening project tab:', err);
+          alert('Failed to open project tab: ' + err.message);
         });
-    }
-
-    // Close tab function
+    }    // Close tab function
     window.closeProjectTab = function(projectId) {
       const tabId = 'tab-' + projectId;
       const contentId = 'tab-content-' + projectId;
       const tabBtn = document.getElementById(tabId);
       const tabPane = document.getElementById(contentId);
+      
+      // Check if the tab being closed is active
+      const isActive = tabBtn && tabBtn.classList.contains('active');
+      
+      // Remove the tab and content
       if (tabBtn) tabBtn.parentElement.remove();
       if (tabPane) tabPane.remove();
-      // Optionally, activate another tab if any
-      const firstTab = document.querySelector('#projectTabs .nav-link');
-      if (firstTab) {
-        const tab = new bootstrap.Tab(firstTab);
-        tab.show();
+      
+      // Only activate another tab if the closed tab was active
+      if (isActive) {
+        const firstTab = document.querySelector('#projectTabs .nav-link');
+        if (firstTab) {
+          try {
+            const tab = new bootstrap.Tab(firstTab);
+            tab.show();
+          } catch (err) {
+            console.error('Error activating tab after close:', err);
+          }
+        }
       }
     }
 
