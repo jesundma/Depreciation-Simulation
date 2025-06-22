@@ -138,13 +138,109 @@
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>    <script>    // Function to clean up modal backdrops and fix UI state
+    function cleanupModalBackdrops() {
+      console.log('Cleaning up modal backdrops...');
+      
+      // Remove any modal backdrops
+      const modalBackdrops = document.querySelectorAll('.modal-backdrop');
+      modalBackdrops.forEach(backdrop => {
+        console.log('Removing backdrop:', backdrop);
+        backdrop.remove();
+      });
+      
+      // Reset body styles
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+      
+      // Additional forceful cleanup
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('padding-right');
+      
+      console.log('Cleanup completed');
+    }
+    
     // Make project_fields available in JS (Jinja2 block for correct placement)
-    var projectFields = {{ project_fields | tojson | safe }};
-
+    var projectFields = {{ project_fields | tojson | safe }};    // Add event listeners to all modals to handle backdrop cleanup on close    document.addEventListener('DOMContentLoaded', function() {
+      // Override Bootstrap's modal hide method to ensure proper cleanup
+      const originalHide = bootstrap.Modal.prototype.hide;
+      bootstrap.Modal.prototype.hide = function() {
+        console.log('Modal hide method called - applying custom cleanup');
+        // Call the original hide method
+        originalHide.apply(this, arguments);
+        // Schedule our cleanup
+        setTimeout(cleanupModalBackdrops, 150);
+      };
+      
+      // Set up listeners for each modal
+      ['searchModal', 'resultsModal', 'investmentModal'].forEach(modalId => {
+        const modalElement = document.getElementById(modalId);
+        if (modalElement) {
+          // Listen for when the modal starts to hide
+          modalElement.addEventListener('hide.bs.modal', function(event) {
+            console.log(`Modal ${modalId} hide event triggered`);
+            // Schedule cleanup
+            setTimeout(cleanupModalBackdrops, 50);
+          });
+          
+          // Listen for when the modal is completely hidden
+          modalElement.addEventListener('hidden.bs.modal', function(event) {
+            console.log(`Modal ${modalId} hidden event triggered`);
+            // Schedule cleanup
+            setTimeout(cleanupModalBackdrops, 150);
+          });
+          
+          // Add direct click handler for backdrop clicks
+          modalElement.addEventListener('click', function(event) {
+            // Check if the click was on the modal container itself (not its children)
+            if (event.target === modalElement) {
+              console.log(`Backdrop click detected on ${modalId}`);
+              setTimeout(cleanupModalBackdrops, 50);
+            }
+          });
+        }
+      });
+      
+      // Global backdrop click handler
+      document.addEventListener('click', function(event) {
+        if (event.target.classList.contains('modal-backdrop')) {
+          console.log('Direct backdrop click detected');
+          setTimeout(cleanupModalBackdrops, 50);
+        }
+      });
+        // Add escape key handler
+      document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+          console.log('Escape key pressed');
+          setTimeout(cleanupModalBackdrops, 150);
+        }
+      });
+      
+      // Global window click handler for any modal-related element
+      window.addEventListener('click', function(event) {
+        // Check if the clicked element or any parent has modal-related classes
+        let target = event.target;
+        while (target && target !== document) {
+          if (target.classList && 
+              (target.classList.contains('modal') || 
+               target.classList.contains('modal-backdrop') ||
+               target.classList.contains('modal-dialog'))) {
+            console.log('Modal-related element clicked');
+            setTimeout(cleanupModalBackdrops, 50);
+            break;
+          }
+          target = target.parentNode;
+        }
+      }, true); // Use capturing phase to handle events before they reach other handlers
+    });
+    
     // Search and display results with checkboxes
-    document.getElementById('search-projects-btn').addEventListener('click', function() {      const form = document.getElementById('search-projects-form');
+    document.getElementById('search-projects-btn').addEventListener('click', function() {
+      // Clean up any existing modal backdrops before starting
+      cleanupModalBackdrops();
+      
+      const form = document.getElementById('search-projects-form');
       const formData = new FormData(form);
       const params = new URLSearchParams();
       
@@ -166,8 +262,7 @@
             throw new Error(`Server returned status ${response.status}: ${response.statusText}`);
           }
           return response.json();
-        })
-        .then(data => {
+        })        .then(data => {
           let html = '';
           if (!Array.isArray(data) || data.length === 0) {
             html = '<div class="alert alert-warning">No projects found.</div>';
@@ -190,7 +285,13 @@
           document.getElementById('search-results-container').innerHTML = html;
           // Hide the search modal only after results are ready
           const searchModal = bootstrap.Modal.getInstance(document.getElementById('searchModal'));
-          if (searchModal) searchModal.hide();
+          if (searchModal) {
+            searchModal.hide();
+            // Ensure backdrop is removed from search modal too
+            setTimeout(() => {
+              cleanupModalBackdrops();
+            }, 150);
+          }
           const resultsModal = new bootstrap.Modal(document.getElementById('resultsModal'));
           resultsModal.show();
         })        .catch(err => {
@@ -201,37 +302,51 @@
           const resultsModal = bootstrap.Modal.getInstance(document.getElementById('resultsModal')) || 
                                new bootstrap.Modal(document.getElementById('resultsModal'));
           resultsModal.show();
-        });
-    });    // Handle opening selected projects in tabs
+          
+          // Ensure backdrop is properly managed
+          setTimeout(cleanupModalBackdrops, 150);
+        });    });    // Handle opening selected projects in tabs
     document.getElementById('select-projects-form').addEventListener('submit', function(e) {
       e.preventDefault();
+      console.log('Form submitted, processing selection...');
+      
       const checked = Array.from(document.querySelectorAll('#search-results-container input[name="project_id"]:checked')).map(cb => cb.value);
       if (checked.length === 0) {
         alert('No projects selected.');
         return;
       }
-      
-      // Close results modal first to prevent UI freezing
+        // Close results modal first to prevent UI freezing
       const resultsModal = bootstrap.Modal.getInstance(document.getElementById('resultsModal'));
       if (resultsModal) {
+        console.log('Hiding results modal...');
         resultsModal.hide();
-        // Remove the modal backdrop manually if it persists
-        const modalBackdrops = document.querySelectorAll('.modal-backdrop');
-        modalBackdrops.forEach(backdrop => backdrop.remove());
-        document.body.classList.remove('modal-open');
-        document.body.style.overflow = '';
-        document.body.style.paddingRight = '';
       }
       
-      // Add a small delay before opening tabs to ensure modal is fully closed
+      // Forceful cleanup of modals
+      cleanupModalBackdrops();
+      
+      // Add a larger delay before opening tabs to ensure modal is fully closed
       setTimeout(() => {
+        console.log('Opening project tabs...');
         // For each selected project, fetch details and open in a tab
         checked.forEach(projectId => {
           openProjectTab(projectId);
         });
-      }, 300);
+        
+        // Final cleanup to ensure no backdrop remains
+        setTimeout(cleanupModalBackdrops, 300);
+      }, 500);
     });
 
+    // Add emergency cleanup mechanism - double click on page background fixes UI
+    document.addEventListener('dblclick', function(event) {
+      // Only respond to clicks directly on the body background
+      if (event.target === document.body) {
+        console.log('Emergency cleanup triggered via double-click');
+        cleanupModalBackdrops();
+      }
+    });
+    
     // Tab management
     function openProjectTab(projectId) {
       // If tab already exists, activate it
