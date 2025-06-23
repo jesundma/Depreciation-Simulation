@@ -636,40 +636,26 @@
         .catch(error => console.error('Error loading depreciation buttons:', error));
     }    function calculateDepreciations(projectId) {
       if (!confirm('Are you sure you want to calculate depreciations for this project?')) return;
-      
       // Show loading indicator
       const buttonContainer = document.getElementById(`depreciation-buttons-${projectId}`);
       if (buttonContainer) {
         buttonContainer.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
       }
-      
-      console.log(`Starting depreciation calculation for project ID: ${projectId}`);
-      
-      // Call API
+      // Call API to calculate
       fetch(`/api/projects/${projectId}/calculate-depreciations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
-      })      .then(response => {
-        console.log(`API response status: ${response.status}`);
-        return response.json();
       })
+      .then(response => response.json())
       .then(data => {
-        console.log('Full API response:', data);
-        
         if (data.success) {
-          console.log('Calculation result:', data);
-          // Display the method_type for debugging
           alert(`Depreciations calculated successfully!\n\nDebug info: Method type is "${data.method_type}"`);
         } else {
-          console.error('Calculation failed:', data.error);
           alert(`Failed to calculate depreciations:\n${data.error || 'Unknown error'}`);
         }
-        
-        // Reload the buttons regardless of success/failure
         loadDepreciationButtons(projectId);
       })
       .catch(error => {
-        console.error('Error calculating depreciations:', error);
         alert('An error occurred while calculating depreciations.');
         loadDepreciationButtons(projectId);
       });

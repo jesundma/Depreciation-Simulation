@@ -278,5 +278,22 @@ def has_calculated_depreciations(project_id):
     except Exception as e:
         return jsonify({'has_calculated_depreciations': False, 'error': str(e)})
 
+@app.route('/api/projects/<project_id>/save-investments', methods=['POST'])
+@login_required
+def save_investments_and_depreciation(project_id):
+    """
+    Placeholder endpoint to save investments and depreciation years/months for a project.
+    Expects JSON body with keys like investment_<year>, depr_start_<year>, depr_month_<year>.
+    """
+    try:
+        data = request.get_json() or {}
+        # TODO: Parse investments, depreciation years, and months from data
+        # Example: investments = {year: amount}, depreciation_starts = {year: (start, month)}
+        print(f"[DEBUG] Received save data for project {project_id}: {data}")
+        # Return success for now
+        return jsonify({'success': True, 'message': 'Investments and depreciation data saved (placeholder).'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 if __name__ == '__main__':
     app.run(debug=True)
