@@ -1,5 +1,5 @@
 import psycopg2
-from psycopg2.extras import execute_values
+from psycopg2.extras import execute_values, RealDictCursor
 from collections import Counter
 from db.base_repository import BaseRepository
 
@@ -33,38 +33,38 @@ class ProjectRepository(BaseRepository):
         # Only return raw results; conversion to Project object should be done in the service layer
         return results[0] if results else None
 
-    def search_projects(self, project_id=None, branch=None, operations=None, description=None):
+    def search_projects(self, filters=None):
         """
-        Search for projects in the database based on optional filters.
-        Returns projects with the depreciation method as plain text description.
+        Search for projects in the database based on dynamic filters.
+        Returns all columns defined in the Project dataclass, but replaces depreciation_method with the method description.
+        :param filters: Dictionary of filters (keys are column names, values are filter values)
+        :return: List of project dicts
         """
-        query = """
-            SELECT 
-                projects.project_id,
-                projects.branch,
-                projects.operations,
-                projects.description,
-                depreciation_schedules.method_description AS depreciation_method
+        from models.project_model import Project
+        project_fields = [f.name for f in Project.__dataclass_fields__.values()]
+        columns = []
+        for field in project_fields:
+            if field == 'depreciation_method':
+                columns.append('depreciation_schedules.method_description AS depreciation_method')
+            else:
+                columns.append(f"projects.{field}")
+        query = f"""
+            SELECT {', '.join(columns)}
             FROM projects
             LEFT JOIN depreciation_schedules
                 ON projects.depreciation_method = depreciation_schedules.depreciation_id
             WHERE TRUE
         """
         params = []
-
-        if project_id:
-            query += " AND projects.project_id = %s"
-            params.append(project_id)
-        if branch:
-            query += " AND projects.branch ILIKE %s"
-            params.append(f"%{branch}%")
-        if operations:
-            query += " AND projects.operations ILIKE %s"
-            params.append(f"%{operations}%")
-        if description:
-            query += " AND projects.description ILIKE %s"
-            params.append(f"%{description}%")
-
+        if filters:
+            for key, value in filters.items():
+                if value is not None and value != '':
+                    if key in ['branch', 'operations', 'description']:
+                        query += f" AND projects.{key} ILIKE %s"
+                        params.append(f"%{value}%")
+                    else:
+                        query += f" AND projects.{key} = %s"
+                        params.append(value)
         results = self.execute_query(query, params, fetch=True)
         return results
 

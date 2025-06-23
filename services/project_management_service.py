@@ -30,19 +30,23 @@ class ProjectManagementService:
         return None
     
     @staticmethod
-    def search_projects(project_id=None, branch=None, operations=None, description=None):
+    def search_projects(**kwargs):
         """
         Search for projects in the database based on criteria.
+        Only columns defined in the Project dataclass are included in the search and results.
         """
-        db_service = DatabaseService()
-        results = db_service.search_projects(
-            project_id=project_id,
-            branch=branch,
-            operations=operations,
-            description=description
-        )
-        # Return a list of dicts for Flask jsonify (not a JSON string)
-        return [dict(row) for row in results]
+        from models.project_model import Project
+        from db.repository_factory import RepositoryFactory
+        project_fields = list(Project.__dataclass_fields__.keys())
+        # Filter kwargs to only include fields defined in Project
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in project_fields}
+        repo = RepositoryFactory.create_project_repository()
+        results = repo.search_projects(filtered_kwargs)
+        # Always return all fields from the dataclass, even if missing in the row
+        return [
+            {field: row.get(field) for field in project_fields}
+            for row in results
+        ]
     
     @staticmethod
     def get_project_investments(project_id):
