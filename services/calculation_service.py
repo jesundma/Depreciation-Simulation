@@ -10,10 +10,43 @@ class CalculationService:
         # Use repository factory to get repository instances
         investment_repo = RepositoryFactory.create_investment_repository()
         depreciation_repo = RepositoryFactory.create_depreciation_repository()
-        
-        df = CalculationService.get_investment_dataframe(project_id)
+        # Get investment schedule directly from the repository
+        investment_data = investment_repo.get_investment_schedule(project_id)
+        df = pd.DataFrame(investment_data)
         df.columns = df.columns.str.lower()
-        # ...existing code for percentage-based depreciation...
+        # Use a fixed annual depreciation rate (e.g., 20%)
+        annual_depreciation_rate = 0.20
+        rows = []
+        for _, row in df.iterrows():
+            start_year = int(row['year'])
+            investment = float(row['investment_amount']) if row['investment_amount'] is not None else 0.0
+            value = investment
+            year = start_year
+            month = 1
+            monthly_depr = investment * annual_depreciation_rate / 12.0
+            while value > 0:
+                start_value = value
+                if start_value < monthly_depr:
+                    depreciation = start_value
+                    remainder = 0.0
+                else:
+                    depreciation = monthly_depr
+                    remainder = start_value - depreciation
+                rows.append({
+                    'year': year,
+                    'month': month,
+                    'start_value': start_value,
+                    'depreciation': depreciation,
+                    'remainder': remainder
+                })
+                value = remainder
+                month += 1
+                if month > 12:
+                    month = 1
+                    year += 1
+        result_df = pd.DataFrame(rows)
+        print(result_df.head(36))  # Show first 3 years for debug
+        # ...further logic for saving or returning result_df...
 
     @staticmethod
     def calculate_depreciation_years(project_id: str):
@@ -23,8 +56,9 @@ class CalculationService:
         # Use repository factory to get repository instances
         investment_repo = RepositoryFactory.create_investment_repository()
         depreciation_repo = RepositoryFactory.create_depreciation_repository()
-        
-        df = CalculationService.get_investment_dataframe(project_id)
+        # Get investment schedule directly from the repository
+        investment_data = investment_repo.get_investment_schedule(project_id)
+        df = pd.DataFrame(investment_data)
         df.columns = df.columns.str.lower()
         # ...existing code for years-based depreciation...
 
