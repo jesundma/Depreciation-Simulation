@@ -1,66 +1,91 @@
 from db.repository_factory import RepositoryFactory
 import pandas as pd
+import logging
+import os
+
+# Set up logging for this module
+log_path = os.path.join(os.path.dirname(__file__), '..', 'depreciation_debug.log')
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)s %(message)s',
+    handlers=[
+        logging.FileHandler(log_path, mode='a'),
+        logging.StreamHandler()  # Optional: keep this if you want logs in terminal too
+    ]
+)
+logger = logging.getLogger(__name__)
 
 class CalculationService:
     @staticmethod
     def calculate_depreciation_percentage(project_id: str):
         """
         Calculate percentage-based depreciation for a project up to the year 2040.
+        Returns the result DataFrame for debugging.
         """
         # Use repository factory to get repository instances
         investment_repo = RepositoryFactory.create_investment_repository()
         depreciation_repo = RepositoryFactory.create_depreciation_repository()
         # Get investment schedule directly from the repository
         investment_data = investment_repo.get_investment_schedule(project_id)
+        logger.debug(f'investment_data: {investment_data}')  # Debug: show raw investment data
         df = pd.DataFrame(investment_data)
         df.columns = df.columns.str.lower()
-        # Use a fixed annual depreciation rate (e.g., 20%)
-        annual_depreciation_rate = 0.20
+        # Ensure investment_amount is numeric (int or float) before inverting
+        if 'investment_amount' in df.columns:
+            df['investment_amount'] = pd.to_numeric(df['investment_amount'], errors='coerce').fillna(0).astype(int) * -1
+        logger.debug(f'df after inverting investment_amount: {df}')  # Debug: show DataFrame after conversion
+        # Find the first valid depreciation start year and month (relaxed: only require start_year and month)
+        start_row = df[df['start_year'].notnull() & df['month'].notnull()].head(1)
+        if not start_row.empty:
+            dep_start_year = int(start_row['start_year'].values[0])
+            dep_start_month = int(start_row['month'].values[0])
+        else:
+            logger.warning('No valid depreciation start year/month found. No depreciation calculated.')
+            return pd.DataFrame()
+        # Accumulate all investments up to and including the depreciation start date
+        df['year'] = df['year'].astype(int)
+        df['month'] = df['month'].fillna(1).astype(int)
+        investments_before_start = df[(df['year'] < dep_start_year) |
+                                      ((df['year'] == dep_start_year) & (df['month'] <= dep_start_month))]
+        total_investment = investments_before_start['investment_amount'].sum()
+        logger.debug(f'Depreciation starts at {dep_start_year}-{dep_start_month}, total investment: {total_investment}')
+  
+        # Build a DataFrame with rows for each month from the depreciation start to 2040
         rows = []
-        for _, row in df.iterrows():
-            start_year = int(row['year'])
-            investment = float(row['investment_amount']) if row['investment_amount'] is not None else 0.0
-            value = investment
-            year = start_year
-            month = 1
-            monthly_depr = investment * annual_depreciation_rate / 12.0
-            while value > 0:
-                start_value = value
-                if start_value < monthly_depr:
-                    depreciation = start_value
-                    remainder = 0.0
-                else:
-                    depreciation = monthly_depr
-                    remainder = start_value - depreciation
-                rows.append({
-                    'year': year,
-                    'month': month,
-                    'start_value': start_value,
-                    'depreciation': depreciation,
-                    'remainder': remainder
-                })
-                value = remainder
-                month += 1
-                if month > 12:
-                    month = 1
-                    year += 1
+        year = dep_start_year
+        month = dep_start_month
+        while year <= 2040:
+            # For the first year, start from dep_start_month; for others, from 1
+            start_m = month if year == dep_start_year else 1
+            end_m = 12
+            for m in range(start_m, end_m + 1):
+                rows.append({'year': year, 'month': m})
+            year += 1
         result_df = pd.DataFrame(rows)
-        print(result_df.head(36))  # Show first 3 years for debug
-        # ...further logic for saving or returning result_df...
+        # Place all investments from df at or after the depreciation start to the right year and month in this dataframe
+        investments_from_start = df[(df['year'] > dep_start_year) |
+                                    ((df['year'] == dep_start_year) & (df['month'] >= dep_start_month))]
+        inv_grouped = investments_from_start.groupby(['year', 'month'])['investment_amount'].sum().reset_index()
+        result_df = result_df.merge(inv_grouped, on=['year', 'month'], how='left')
+        result_df['investment_amount'] = result_df['investment_amount'].fillna(0).astype(int)
+        logger.debug(f'Tulos: {result_df.head(24)}')  # Debugging output to check the result DataFrame
+        # Return the DataFrame for debugging
+        return result_df
 
     @staticmethod
     def calculate_depreciation_years(project_id: str):
         """
         Calculate years-based depreciation for a project up to the year 2040.
+        Returns the result DataFrame for debugging (placeholder for now).
         """
-        # Use repository factory to get repository instances
         investment_repo = RepositoryFactory.create_investment_repository()
         depreciation_repo = RepositoryFactory.create_depreciation_repository()
-        # Get investment schedule directly from the repository
         investment_data = investment_repo.get_investment_schedule(project_id)
         df = pd.DataFrame(investment_data)
         df.columns = df.columns.str.lower()
         # ...existing code for years-based depreciation...
+        # For now, return the empty DataFrame for debugging
+        return df
 
     @staticmethod
     def calculate_depreciation_for_all_projects():
@@ -75,25 +100,27 @@ class CalculationService:
             try:
                 CalculationService.handle_depreciation_calculation(project_id)
             except Exception as e:
-                print(f"[ERROR] Failed to calculate depreciation for project ID {project_id}: {e}")
+                logger.error(f"Failed to calculate depreciation for project ID {project_id}: {e}")
                 
     @staticmethod
     def handle_depreciation_calculation(project_id: str):
         """
         Handle the depreciation calculation by determining the method type and calling the appropriate function.
+        Returns (method_type, debug_df) for debugging.
         """
         try:
             method_type = CalculationService.get_depreciation_method_type(project_id)
-            print(f"[DEBUG] Detected depreciation method type: {method_type}")
+            logger.debug(f'Detected depreciation method type: {method_type}')
+            debug_df = None
             if method_type == "percentage":
-                CalculationService.calculate_depreciation_percentage(project_id)
+                debug_df = CalculationService.calculate_depreciation_percentage(project_id)
             elif method_type == "years":
-                CalculationService.calculate_depreciation_years(project_id)
+                debug_df = CalculationService.calculate_depreciation_years(project_id)
             else:
                 raise ValueError(f"Unknown depreciation method type: {method_type}")
-            return method_type
+            return method_type, debug_df
         except Exception as e:
-            print(f"[ERROR] Error in handle_depreciation_calculation: {str(e)}")
+            logger.error(f"Error in handle_depreciation_calculation: {str(e)}")
             raise  # Re-raise the exception to be handled by the caller
 
     @staticmethod

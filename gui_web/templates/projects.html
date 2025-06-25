@@ -673,13 +673,20 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       })
-      .then(response => response.json())
+      .then(async response => {
+        let data;
+        try {
+          data = await response.json();
+        } catch (err) {
+          const text = await response.text();
+          throw new Error(`Server error: ${response.status} ${response.statusText}\n${text}`);
+        }
+        return data;
+      })
       .then(data => {
         if (data.success) {
           console.log('Recalculation result:', data);
-          // Display the method_type for debugging
           alert(`Depreciations recalculated successfully!\n\nDebug info: Method type is "${data.method_type}"`);
-          // Reload the buttons
           loadDepreciationButtons(projectId);
         } else {
           alert('Failed to recalculate depreciations: ' + (data.error || 'Unknown error'));
@@ -688,7 +695,7 @@
       })
       .catch(error => {
         console.error('Error recalculating depreciations:', error);
-        alert('An error occurred while recalculating depreciations.');
+        alert('An error occurred while recalculating depreciations.\n' + error);
         loadDepreciationButtons(projectId);
       });
     }
