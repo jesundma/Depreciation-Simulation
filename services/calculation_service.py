@@ -3,17 +3,17 @@ import pandas as pd
 import logging
 import os
 
-# Set up logging for this module
 log_path = os.path.join(os.path.dirname(__file__), '..', 'depreciation_debug.log')
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(levelname)s %(message)s',
-    handlers=[
-        logging.FileHandler(log_path, mode='a'),
-        logging.StreamHandler()  # Optional: keep this if you want logs in terminal too
-    ]
-)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('depreciation_logger')
+logger.setLevel(logging.DEBUG)
+if not logger.handlers:
+    file_handler = logging.FileHandler(log_path, mode='a')
+    file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+    logger.addHandler(file_handler)
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+    logger.addHandler(stream_handler)
+logger.debug("Logger initialized and ready to write to depreciation_debug.log")
 
 class CalculationService:
     @staticmethod
@@ -63,6 +63,7 @@ class CalculationService:
             year += 1
         result_df = pd.DataFrame(rows)
         # Place all investments from df at or after the depreciation start to the right year and month in this dataframe
+        # If any investments have missing month (originally NaN), they are now set to 1
         investments_from_start = df[(df['year'] > dep_start_year) |
                                     ((df['year'] == dep_start_year) & (df['month'] >= dep_start_month))]
         inv_grouped = investments_from_start.groupby(['year', 'month'])['investment_amount'].sum().reset_index()
