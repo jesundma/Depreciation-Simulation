@@ -596,20 +596,35 @@
       const form = document.getElementById('investment-modal-form');
       const data = Object.fromEntries(new FormData(form).entries());
       const projectId = document.getElementById('investmentModal').getAttribute('data-project-id');
-      // TODO: Send data to backend endpoint for saving
-      alert('Saving investments for project ' + projectId + ':\n' + JSON.stringify(data, null, 2));
-      // Optionally close modal
-      const modal = bootstrap.Modal.getInstance(document.getElementById('investmentModal'));
-      if (modal) modal.hide();
-      // Refresh the tab table if open
-      const tabTableDiv = document.getElementById(`investment-table-${projectId}`);
-      if (tabTableDiv) {
-        fetch(`/project-investments/${projectId}`)
-          .then(response => response.json())
-          .then(investments => {
-            renderInvestmentTableForProject(projectId, investments, true);
-          });
-      }
+      // Send data to backend endpoint for saving
+      fetch(`/api/projects/${projectId}/save-investments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.json())
+      .then(result => {
+        if (result.success) {
+          alert('Investments and depreciation data saved!');
+        } else {
+          alert('Error saving data: ' + (result.error || 'Unknown error'));
+        }
+        // Optionally close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('investmentModal'));
+        if (modal) modal.hide();
+        // Refresh the tab table if open
+        const tabTableDiv = document.getElementById(`investment-table-${projectId}`);
+        if (tabTableDiv) {
+          fetch(`/project-investments/${projectId}`)
+            .then(response => response.json())
+            .then(investments => {
+              renderInvestmentTableForProject(projectId, investments, true);
+            });
+        }
+      })
+      .catch(error => {
+        alert('Network or server error: ' + error);
+      });
     });
 
     // Functions for depreciation calculations

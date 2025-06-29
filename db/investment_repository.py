@@ -1,5 +1,5 @@
 import psycopg2
-from psycopg2.extras import execute_values
+from psycopg2.extras import execute_values, RealDictCursor
 from db.base_repository import BaseRepository
 
 class InvestmentRepository(BaseRepository):
@@ -37,6 +37,13 @@ class InvestmentRepository(BaseRepository):
             ON CONFLICT (project_id, year) DO UPDATE
             SET investment_amount = EXCLUDED.investment_amount;
         """
+
+        # Delete old depreciation entries for the given project ID
+        delete_query = """
+            DELETE FROM investment_depreciation_periods
+            WHERE project_id = %s;
+        """
+        self.execute_query(delete_query, (project_id,))
 
         # Save start years and start months to the investment_depreciation_periods table
         start_year_month_query = """

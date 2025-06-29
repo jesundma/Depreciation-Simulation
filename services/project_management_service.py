@@ -73,3 +73,40 @@ class ProjectManagementService:
         db_service = DatabaseService()
         has_depr = db_service.has_calculated_depreciations(project_id)
         return {'has_depreciations': has_depr}
+    
+    @staticmethod
+    def save_investments_and_depreciation(project_id: str, investments: dict, depreciation_starts: dict):
+        """
+        Save investments and depreciation start years/months for a project.
+        :param project_id: The ID of the project.
+        :param investments: Dict of {year: amount}
+        :param depreciation_starts: Dict of {year: (start_year, start_month)}
+        """
+        from db.repository_factory import RepositoryFactory
+        investment_repo = RepositoryFactory.create_investment_repository()
+
+        # Convert tickmarks or invalid year formats to integers
+        investments = {int(year): amount for year, amount in investments.items() if year.isdigit() or year in ['on', 'true']}
+        depreciation_starts = {
+            int(year): (int(start_year) if start_year.isdigit() else None, int(start_month) if start_month.isdigit() else None)
+            for year, (start_year, start_month) in depreciation_starts.items()
+            if year.isdigit() or year in ['on', 'true']
+        }
+
+        # Merge investments and depreciation_starts into the required format
+        merged_data = {
+            year: (
+                investments.get(year),
+                year if depreciation_starts.get(year, (None, None))[1] is not None else None,
+                depreciation_starts.get(year, (None, None))[1]
+            )
+            for year in set(investments.keys()).union(depreciation_starts.keys())
+        }
+
+        # Debugging: Log the adjusted merged data
+        import logging
+        logging.basicConfig(filename='depreciation_debug.log', level=logging.DEBUG)
+        logging.debug(f"Adjusted merged data for project {project_id}: {merged_data}")
+
+        # Save adjusted merged data
+        investment_repo.save_investment_details(project_id, merged_data)

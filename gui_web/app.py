@@ -9,6 +9,7 @@ from services.import_service import ImportService
 from gui_web.auth import register_login_routes, login_required, admin_required
 from models import db
 from models.project_model import Project
+import logging
 
 # Load environment variables from .env file
 load_dotenv()
@@ -27,6 +28,13 @@ db.init_app(app)
 
 # Register login/logout routes
 register_login_routes(app)
+
+# Configure logging
+logging.basicConfig(
+    filename='depreciation_debug.log',
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 @app.route('/')
 # Add login_required to home page
@@ -283,17 +291,42 @@ def has_calculated_depreciations(project_id):
 @login_required
 def save_investments_and_depreciation(project_id):
     """
-    Placeholder endpoint to save investments and depreciation years/months for a project.
+    Endpoint to save investments and depreciation years/months for a project.
     Expects JSON body with keys like investment_<year>, depr_start_<year>, depr_month_<year>.
     """
     try:
         data = request.get_json() or {}
-        # TODO: Parse investments, depreciation years, and months from data
-        # Example: investments = {year: amount}, depreciation_starts = {year: (start, month)}
-        print(f"[DEBUG] Received save data for project {project_id}: {data}")
-        # Return success for now
-        return jsonify({'success': True, 'message': 'Investments and depreciation data saved (placeholder).'})
+
+        # Parse investments and depreciation starts from data
+        investments = {}
+        depreciation_starts = {}
+        for key, value in data.items():
+            if key.startswith('investment_'):
+                year = key.split('_', 1)[1]
+                investments[year] = value
+            elif key.startswith('depr_start_'):
+                year = key.split('_', 2)[2] if key.count('_') == 2 else key.split('_', 1)[1]
+                if year not in depreciation_starts:
+                    depreciation_starts[year] = [None, None]
+                depreciation_starts[year][0] = value
+            elif key.startswith('depr_month_'):
+                year = key.split('_', 2)[2] if key.count('_') == 2 else key.split('_', 1)[1]
+                if year not in depreciation_starts:
+                    depreciation_starts[year] = [None, None]
+                depreciation_starts[year][1] = value
+        # Convert depreciation_starts values to tuples
+        depreciation_starts = {k: tuple(v) for k, v in depreciation_starts.items()}
+
+        # Save using the service
+        from services.project_management_service import ProjectManagementService
+        result = ProjectManagementService.save_investments_and_depreciation(project_id, investments, depreciation_starts)
+
+        # Log the result from the service function
+        logging.debug(f"Result from save_investments_and_depreciation for project {project_id}: {result}")
+
+        return jsonify({'success': True, 'message': 'Investments and depreciation data saved.'})
     except Exception as e:
+        logging.error(f"Error saving investments and depreciation for project {project_id}: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 
 if __name__ == '__main__':
