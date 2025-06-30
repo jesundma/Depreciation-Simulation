@@ -161,3 +161,19 @@ class DepreciationRepository(BaseRepository):
         except Exception as e:
             print(f"Error fetching depreciation methods: {e}")
             return {}
+
+    def get_depreciation_percentage(self, project_id):
+        """
+        Fetch the depreciation percentage for a given project ID.
+        :param project_id: The ID of the project.
+        :return: Depreciation percentage value.
+        """
+        query = """
+        SELECT ds.depreciation_percentage
+        FROM depreciation_schedules ds
+        JOIN projects p ON ds.depreciation_id = p.depreciation_method
+        WHERE p.project_id = %s;
+        """
+        params = (project_id,)
+        result = self.execute_query(query, params, fetch=True)
+        return result[0]['depreciation_percentage'] if result else None

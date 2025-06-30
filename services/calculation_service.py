@@ -46,10 +46,10 @@ class CalculationService:
         df['year'] = df['year'].astype(int)
         df['month'] = df['month'].fillna(1).astype(int)
         investments_before_start = df[(df['year'] < dep_start_year) |
-                                      ((df['year'] == dep_start_year) & (df['month'] <= dep_start_month))]
+                                      ((df['year'] == dep_start_year) & (df['month'] < dep_start_month))]
         total_investment = investments_before_start['investment_amount'].sum()
-        logger.debug(f'Depreciation starts at {dep_start_year}-{dep_start_month}, total investment: {total_investment}')
-  
+        logger.debug(f'Adjusted total investment before depreciation start: {total_investment}')
+
         # Build a DataFrame with rows for each month from the depreciation start to 2040
         rows = []
         year = dep_start_year
@@ -69,7 +69,33 @@ class CalculationService:
         inv_grouped = investments_from_start.groupby(['year', 'month'])['investment_amount'].sum().reset_index()
         result_df = result_df.merge(inv_grouped, on=['year', 'month'], how='left')
         result_df['investment_amount'] = result_df['investment_amount'].fillna(0).astype(int)
-        logger.debug(f'Tulos: {result_df.head(24)}')  # Debugging output to check the result DataFrame
+
+        # Add adjusted total investment to the first depreciation month
+        result_df.loc[(result_df['year'] == dep_start_year) & (result_df['month'] == dep_start_month), 'investment_amount'] += total_investment
+
+        # Initialize columns for monthly depreciation and remainder, define depreciation percentage
+        result_df['depreciation_base'] = 0
+        result_df['monthly_depreciation'] = 0
+        result_df['remainder'] = 0
+        depreciation_percentage = depreciation_repo.get_depreciation_percentage(project_id)
+        
+        # Ensure compatibility between float and Decimal by converting depreciation_percentage to float and convert to monthly percentage
+        depreciation_percentage = float(depreciation_percentage)/12
+
+        # Calculate monthly depreciation and remainder
+        for i, row in result_df.iterrows():
+            if i == 0:
+                # First month: depreciation base is total investment amount
+                result_df.at[i,'depreciation_base'] = float(total_investment)
+                result_df.at[i, 'monthly_depreciation'] = -(result_df.at[i,'depreciation_base'] * depreciation_percentage) / 100
+                result_df.at[i, 'remainder'] = result_df.at[i, 'depreciation_base'] + result_df.at[i, 'monthly_depreciation']
+            else:
+                # Subsequent months: depreciation base is last month's remainder plus investment_amount
+                result_df.at[i, 'depreciation_base'] = result_df.at[i - 1, 'remainder'] + float(result_df.at[i, 'investment_amount'])
+                result_df.at[i, 'monthly_depreciation'] = -(result_df.at[i,'depreciation_base'] * depreciation_percentage) / 100
+                result_df.at[i, 'remainder'] = result_df.at[i, 'depreciation_base'] + result_df.at[i, 'monthly_depreciation']
+            
+        logger.debug(f'Tulos: {result_df.head(60)}')  # Debugging output to check the result DataFrame
         # Return the DataFrame for debugging
         return result_df
 
