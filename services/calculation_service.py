@@ -82,22 +82,41 @@ class CalculationService:
         # Ensure compatibility between float and Decimal by converting depreciation_percentage to float and convert to monthly percentage
         depreciation_percentage = float(depreciation_percentage)/12
 
-        # Calculate monthly depreciation and remainder
-        for i, row in result_df.iterrows():
-            if i == 0:
-                # First month: depreciation base is total investment amount
-                result_df.at[i,'depreciation_base'] = float(total_investment)
-                result_df.at[i, 'monthly_depreciation'] = -(result_df.at[i,'depreciation_base'] * depreciation_percentage) / 100
-                result_df.at[i, 'remainder'] = result_df.at[i, 'depreciation_base'] + result_df.at[i, 'monthly_depreciation']
+        # Group data by year into a list of DataFrames
+        grouped_by_year = [result_df[result_df['year'] == year].copy() for year in result_df['year'].unique()]
+
+        # Assume the first DataFrame corresponds to year one
+        first_year_group = grouped_by_year[0]
+
+        # Calculate monthly depreciation for the first year
+        first_year_group.at[0, 'depreciation_base'] = first_year_group.at[0, 'investment_amount']
+        depreciation_value = float(-(first_year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)  
+        
+        # Correct iteration over rows using unpacking of iterrows()
+        for i, row in first_year_group.iterrows():
+            if i == first_year_group.index[0]:
+                first_year_group.at[i, 'remainder'] = first_year_group.at[first_year_group.index[0], 'depreciation_base'] + depreciation_value
             else:
-                # Subsequent months: depreciation base is last month's remainder plus investment_amount
-                result_df.at[i, 'depreciation_base'] = result_df.at[i - 1, 'remainder'] + float(result_df.at[i, 'investment_amount'])
-                result_df.at[i, 'monthly_depreciation'] = -(result_df.at[i,'depreciation_base'] * depreciation_percentage) / 100
-                result_df.at[i, 'remainder'] = result_df.at[i, 'depreciation_base'] + result_df.at[i, 'monthly_depreciation']
-            
-        logger.debug(f'Tulos: {result_df.head(60)}')  # Debugging output to check the result DataFrame
-        # Return the DataFrame for debugging
-        return result_df
+                first_year_group.at[i, 'remainder'] = first_year_group.at[i - 1, 'remainder'] + depreciation_value
+            first_year_group.at[i, 'monthly_depreciation'] = depreciation_value
+
+        combined_df = pd.DataFrame(columns=['year', 'month', 'investment_amount', 'depreciation_base', 'monthly_depreciation', 'remainder'])
+        combined_df = pd.concat([combined_df, first_year_group], ignore_index=True)
+        # Calculate depreciation for the subsequent years
+#        CalculationService.calculate_subsequent_years_depreciation(result_df, dep_start_year, depreciation_percentage)
+
+
+        # Return the combined result DataFrame
+        print(combined_df)
+        return combined_df
+
+    @staticmethod
+    def calculate_subsequent_years_depreciation(result_df, dep_start_year, depreciation_percentage):
+        # Define subsequent_years_group to resolve the undefined variable issue
+        pass
+#        subsequent_years_group = pd.DataFrame()
+#
+#        return subsequent_years_group
 
     @staticmethod
     def calculate_depreciation_years(project_id: str):
