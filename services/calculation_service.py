@@ -25,62 +25,23 @@ class CalculationService:
         # Use repository factory to get repository instances
         investment_repo = RepositoryFactory.create_investment_repository()
         depreciation_repo = RepositoryFactory.create_depreciation_repository()
+
         # Get investment schedule directly from the repository
         investment_data = investment_repo.get_investment_schedule(project_id)
         logger.debug(f'investment_data: {investment_data}')  # Debug: show raw investment data
         df = pd.DataFrame(investment_data)
-        df.columns = df.columns.str.lower()
-        # Ensure investment_amount is numeric (int or float) before inverting
-        if 'investment_amount' in df.columns:
-            df['investment_amount'] = pd.to_numeric(df['investment_amount'], errors='coerce').fillna(0).astype(int) * -1
-        logger.debug(f'df after inverting investment_amount: {df}')  # Debug: show DataFrame after conversion
-        # Find the first valid depreciation start year and month (relaxed: only require start_year and month)
-        start_row = df[df['start_year'].notnull() & df['month'].notnull()].head(1)
-        if not start_row.empty:
-            dep_start_year = int(start_row['start_year'].values[0])
-            dep_start_month = int(start_row['month'].values[0])
-        else:
-            logger.warning('No valid depreciation start year/month found. No depreciation calculated.')
-            return pd.DataFrame()
-        # Accumulate all investments up to and including the depreciation start date
-        df['year'] = df['year'].astype(int)
-        df['month'] = df['month'].fillna(1).astype(int)
-        investments_before_start = df[(df['year'] < dep_start_year) |
-                                      ((df['year'] == dep_start_year) & (df['month'] < dep_start_month))]
-        total_investment = investments_before_start['investment_amount'].sum()
-        logger.debug(f'Adjusted total investment before depreciation start: {total_investment}')
 
-        # Build a DataFrame with rows for each month from the depreciation start to 2040
-        rows = []
-        year = dep_start_year
-        month = dep_start_month
-        while year <= 2040:
-            # For the first year, start from dep_start_month; for others, from 1
-            start_m = month if year == dep_start_year else 1
-            end_m = 12
-            for m in range(start_m, end_m + 1):
-                rows.append({'year': year, 'month': m})
-            year += 1
-        result_df = pd.DataFrame(rows)
-        # Place all investments from df at or after the depreciation start to the right year and month in this dataframe
-        # If any investments have missing month (originally NaN), they are now set to 1
-        investments_from_start = df[(df['year'] > dep_start_year) |
-                                    ((df['year'] == dep_start_year) & (df['month'] >= dep_start_month))]
-        inv_grouped = investments_from_start.groupby(['year', 'month'])['investment_amount'].sum().reset_index()
-        result_df = result_df.merge(inv_grouped, on=['year', 'month'], how='left')
-        result_df['investment_amount'] = result_df['investment_amount'].fillna(0).astype(int)
+        # Preprocess the investment data using the preprocess_depreciation_data function
+        depreciation_dataframes = CalculationService.preprocess_depreciation_data(df)
 
-        # Add adjusted total investment to the first depreciation month
-        result_df.loc[(result_df['year'] == dep_start_year) & (result_df['month'] == dep_start_month), 'investment_amount'] += total_investment
+        # Combine all preprocessed DataFrames into a single DataFrame
+        result_df = pd.concat(depreciation_dataframes, ignore_index=True)
 
-        # Initialize columns for monthly depreciation and remainder, define depreciation percentage
-        result_df['depreciation_base'] = 0
-        result_df['monthly_depreciation'] = 0
-        result_df['remainder'] = 0
+        # Define depreciation percentage
         depreciation_percentage = depreciation_repo.get_depreciation_percentage(project_id)
-        
+
         # Ensure compatibility between float and Decimal by converting depreciation_percentage to float and convert to monthly percentage
-        depreciation_percentage = float(depreciation_percentage)/12
+        depreciation_percentage = float(depreciation_percentage) / 12
 
         # Group data by year into a list of DataFrames
         grouped_by_year = [result_df[result_df['year'] == year].copy() for year in result_df['year'].unique()]
@@ -90,8 +51,8 @@ class CalculationService:
 
         # Calculate monthly depreciation for the first year
         first_year_group.at[0, 'depreciation_base'] = first_year_group.at[0, 'investment_amount']
-        depreciation_value = float(-(first_year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)  
-        
+        depreciation_value = float(-(first_year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
+
         # Correct iteration over rows using unpacking of iterrows()
         for i, row in first_year_group.iterrows():
             if i == first_year_group.index[0]:
@@ -102,12 +63,9 @@ class CalculationService:
 
         combined_df = pd.DataFrame(columns=['year', 'month', 'investment_amount', 'depreciation_base', 'monthly_depreciation', 'remainder'])
         combined_df = pd.concat([combined_df, first_year_group], ignore_index=True)
-        # Calculate depreciation for the subsequent years
-#        CalculationService.calculate_subsequent_years_depreciation(result_df, dep_start_year, depreciation_percentage)
-
 
         # Return the combined result DataFrame
-        print(combined_df)
+        logger.debug(f'Final combined DataFrame: {combined_df}')
         return combined_df
 
     @staticmethod
@@ -205,3 +163,102 @@ class CalculationService:
         investment_data = investment_repo.get_investment_schedule(project_id)
         # ...existing code for preprocessing investment data...
         return pd.DataFrame(investment_data)
+
+    @staticmethod
+    def preprocess_depreciation_data(df):
+        """
+        Preprocess the input DataFrame to create the basis for depreciation DataFrames.
+        Ensure investment_amount is placed in the correct month and include empty years up to 2035.
+        """
+        # Ensure columns are in lowercase
+        df.columns = df.columns.str.lower()
+        logger.debug(f'Initial DataFrame: {df}')  # Debug: log the initial DataFrame
+
+        # Initialize variables
+        depreciation_dataframes = []
+        pushed_investments = 0
+        current_year = None
+
+        # Sort the DataFrame by year and month
+        df = df.sort_values(by=['year', 'month'], ignore_index=True)
+        logger.debug(f'Sorted DataFrame: {df}')  # Debug: log the sorted DataFrame
+
+        # Iterate through the DataFrame
+        for index, row in df.iterrows():
+            year = int(row['year'])
+            month = int(row['month']) if not pd.isna(row['month']) else None
+            investment = float(row['investment_amount'])  # Ensure investment is a float
+
+            logger.debug(f'Processing row {index}: year={year}, month={month}, investment={investment}')
+
+            if not pd.isna(row['start_year']) and not pd.isna(row['month']):
+                # Depreciation year and month encountered
+                if current_year is None:
+                    # First depreciation year and month
+                    current_year = year
+                    current_month = month
+
+                    # Sum all previous investments
+                    total_investment = pushed_investments + investment
+                    pushed_investments = 0
+
+                    logger.debug(f'First depreciation year: {current_year}, month: {current_month}, total_investment: {total_investment}')
+
+                    # Create DataFrame for the first depreciation year
+                    months = list(range(1, 13))
+                    investment_amounts = [0] * 12
+                    investment_amounts[current_month - 1] = total_investment
+                    depreciation_dataframes.append(
+                        pd.DataFrame({'year': [current_year] * 12, 'month': months, 'investment_amount': investment_amounts})
+                    )
+                else:
+                    # Subsequent depreciation year and month
+                    total_investment = pushed_investments + investment
+                    pushed_investments = 0
+
+                    logger.debug(f'Subsequent depreciation year: {year}, total_investment: {total_investment}')
+
+                    # Create DataFrame for the depreciation year
+                    months = list(range(1, 13))
+                    investment_amounts = [0] * 12
+                    investment_amounts[month - 1] = total_investment
+                    depreciation_dataframes.append(
+                        pd.DataFrame({'year': [year] * 12, 'month': months, 'investment_amount': investment_amounts})
+                    )
+            else:
+                # No depreciation year and month
+                if current_year is not None:
+                    # Push investment to the next year
+                    pushed_investments += investment
+                    logger.debug(f'Pushed investment: {investment}, total pushed: {pushed_investments}')
+
+        # Ensure all years up to 2035 are included
+        all_years = set(range(df['year'].min(), 2036))
+        existing_years = {int(df['year'].min())} | {int(df['year'].iloc[0]) for df in depreciation_dataframes}
+        missing_years = all_years - existing_years
+
+        for year in sorted(missing_years):
+            months = list(range(1, 13))
+            depreciation_dataframes.append(
+                pd.DataFrame({'year': [year] * 12, 'month': months, 'investment_amount': [0] * 12})
+            )
+
+        # Sort the list of DataFrames by year in ascending order
+        depreciation_dataframes.sort(key=lambda df: df['year'].iloc[0])
+
+        # Ensure investment_amount column is of type float for all DataFrames in the list
+        for df in depreciation_dataframes:
+            df['investment_amount'] = df['investment_amount'].astype(float)
+
+        # Add additional columns to every preprocessed DataFrame in the list
+        for df in depreciation_dataframes:
+            df['depreciation_base'] = 0
+            df['monthly_depreciation'] = 0
+            df['remainder'] = 0
+
+        logger.debug(f'Added additional columns to all DataFrames: {depreciation_dataframes}')  # Debug: log the updated DataFrames
+
+        logger.debug(f'Ordered depreciation DataFrames: {depreciation_dataframes}')  # Debug: log the ordered DataFrames
+
+        # Return the list of depreciation DataFrames
+        return depreciation_dataframes
