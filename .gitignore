@@ -5,3 +5,6 @@ __pycache__/
 # Ignore all Excel files
 *.xls
 *.xlsx
+
+# Ignore all debugging logs
+*.log
