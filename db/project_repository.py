@@ -155,3 +155,14 @@ class ProjectRepository(BaseRepository):
         except Exception as e:
             print(f"[ERROR] Failed to save projects batch: {repr(e)}")
             raise
+
+    def get_cost_center(self, project_id):
+        """
+        Fetch the cost center for a given project ID.
+        :param project_id: The ID of the project to fetch the cost center for.
+        :return: The cost center as a string or None if not found.
+        """
+        query = "SELECT cost_center FROM projects WHERE project_id = %s"
+        params = (project_id,)
+        results = self.execute_query(query, params, fetch=True)
+        return results[0]['cost_center'] if results else None

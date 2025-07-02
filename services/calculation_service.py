@@ -32,7 +32,8 @@ class CalculationService:
         df = pd.DataFrame(investment_data)
 
         # Preprocess the investment data using the preprocess_depreciation_data function
-        depreciation_dataframes = CalculationService.preprocess_depreciation_data(df)
+        # Pass project_id to the preprocess_depreciation_data function
+        depreciation_dataframes = CalculationService.preprocess_depreciation_data(df, project_id)
 
         # Combine all preprocessed DataFrames into a single DataFrame
         result_df = pd.concat(depreciation_dataframes, ignore_index=True)
@@ -165,7 +166,7 @@ class CalculationService:
         return pd.DataFrame(investment_data)
 
     @staticmethod
-    def preprocess_depreciation_data(df):
+    def preprocess_depreciation_data(df, project_id):
         """
         Preprocess the input DataFrame to create the basis for depreciation DataFrames.
         Ensure investment_amount is placed in the correct month and include empty years up to 2035.
@@ -256,7 +257,24 @@ class CalculationService:
             df['monthly_depreciation'] = 0
             df['remainder'] = 0
 
-        logger.debug(f'Added additional columns to all DataFrames: {depreciation_dataframes}')  # Debug: log the updated DataFrames
+        # Ensure all added columns are of type float for all DataFrames in the list
+        for df in depreciation_dataframes:
+            df['depreciation_base'] = df['depreciation_base'].astype(float)
+            df['monthly_depreciation'] = df['monthly_depreciation'].astype(float)
+            df['remainder'] = df['remainder'].astype(float)
+
+        logger.debug(f'Converted added columns to float in all DataFrames: {depreciation_dataframes}')  # Debug: log the updated DataFrames
+
+        # Fetch cost_center data for the project using the project_id
+        project_repo = RepositoryFactory.create_project_repository()
+        cost_center = project_repo.get_cost_center(project_id)
+        logger.debug(f'Fetched cost_center: {cost_center}')  # Debug: log the cost_center
+
+        # Add cost_center as a column to every preprocessed DataFrame in the list
+        for df in depreciation_dataframes:
+            df['cost_center'] = cost_center
+
+        logger.debug(f'Added cost_center column to all DataFrames: {depreciation_dataframes}')  # Debug: log the updated DataFrames
 
         logger.debug(f'Ordered depreciation DataFrames: {depreciation_dataframes}')  # Debug: log the ordered DataFrames
 
