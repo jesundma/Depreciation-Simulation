@@ -4,6 +4,10 @@ import logging
 import os
 
 log_path = os.path.join(os.path.dirname(__file__), '..', 'depreciation_debug.log')
+# Clear the log file before writing new content
+with open(log_path, 'w') as log_file:
+    log_file.write('')
+
 logger = logging.getLogger('depreciation_logger')
 logger.setLevel(logging.DEBUG)
 if not logger.handlers:
@@ -48,8 +52,11 @@ class CalculationService:
         first_year_group.at[0, 'depreciation_base'] = first_year_group.at[0, 'investment_amount']
         depreciation_value = float(-(first_year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
 
-        # Correct iteration over rows using unpacking of iterrows()
         for i, row in first_year_group.iterrows():
+            if row['investment_amount'] > 0:
+                first_year_group.at[i, 'depreciation_base'] += row['investment_amount']  # Add positive investment amount to depreciation base
+                depreciation_value = float(-(first_year_group.at[i, 'depreciation_base'] * depreciation_percentage) / 100)  # Recalculate monthly depreciation
+
             if i == first_year_group.index[0]:
                 first_year_group.at[i, 'remainder'] = first_year_group.at[first_year_group.index[0], 'depreciation_base'] + depreciation_value
             else:
@@ -57,10 +64,29 @@ class CalculationService:
             first_year_group.at[i, 'monthly_depreciation'] = depreciation_value
 
         combined_df = pd.DataFrame(columns=['year', 'month', 'investment_amount', 'depreciation_base', 'monthly_depreciation', 'remainder'])
-        combined_df = pd.concat([combined_df, first_year_group], ignore_index=True)
+        combined_df = pd.concat([combined_df, first_year_group], ignore_index=True)  # Append first year group
 
-        # Return the combined result DataFrame
-        logger.debug(f"Final combined DataFrame: {combined_df}")
+        # Calculate depreciation for subsequent years
+        for idx, year_group in enumerate(depreciation_dataframes[1:], start=1):
+            previous_year_group = depreciation_dataframes[idx - 1]  # Get the previous year group
+            year_group.at[0, 'depreciation_base'] = previous_year_group.at[previous_year_group.index[-1], 'remainder']
+            depreciation_value = float(-(year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
+
+            for i, row in year_group.iterrows():
+                if row['investment_amount'] < 0:
+                    year_group.at[i, 'depreciation_base'] += row['investment_amount']  # Add positive investment amount to depreciation base
+                    depreciation_value = float(-(year_group.at[i, 'depreciation_base'] * depreciation_percentage) / 100)  # Recalculate monthly depreciation
+
+                if i == year_group.index[0]:
+                    year_group.at[i, 'remainder'] = year_group.at[year_group.index[0], 'depreciation_base'] + depreciation_value
+                else:
+                    year_group.at[i, 'remainder'] = year_group.at[i - 1, 'remainder'] + depreciation_value
+                year_group.at[i, 'monthly_depreciation'] = depreciation_value
+
+            combined_df = pd.concat([combined_df, year_group], ignore_index=True)  # Append subsequent year group
+
+        # Modify log to present all rows of the final DataFrame
+        logger.debug(f"Final combined DataFrame (all rows):\n{combined_df.to_string(index=False)}")
         return combined_df
 
     @staticmethod
