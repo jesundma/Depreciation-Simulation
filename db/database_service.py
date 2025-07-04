@@ -307,7 +307,7 @@ class DatabaseService:
         :param project_id: The ID of the project.
         :return: True if calculated depreciations exist, False otherwise.
         """
-        query = "SELECT EXISTS (SELECT 1 FROM calculated_depreciations WHERE project_id = %s AND remaining_value IS NOT NULL)"
+        query = "SELECT EXISTS (SELECT 1 FROM calculated_depreciations WHERE project_id = %s AND remainder IS NOT NULL)"
         params = (project_id,)
         result = self.execute_query(query, params, fetch=True)
 

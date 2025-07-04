@@ -35,20 +35,14 @@ class CalculationService:
         # Pass project_id to the preprocess_depreciation_data function
         depreciation_dataframes = CalculationService.preprocess_depreciation_data(df, project_id)
 
-        # Combine all preprocessed DataFrames into a single DataFrame
-        result_df = pd.concat(depreciation_dataframes, ignore_index=True)
-
         # Define depreciation percentage
         depreciation_percentage = depreciation_repo.get_depreciation_percentage(project_id)
 
         # Ensure compatibility between float and Decimal by converting depreciation_percentage to float and convert to monthly percentage
         depreciation_percentage = float(depreciation_percentage) / 12
 
-        # Group data by year into a list of DataFrames
-        grouped_by_year = [result_df[result_df['year'] == year].copy() for year in result_df['year'].unique()]
-
         # Assume the first DataFrame corresponds to year one
-        first_year_group = grouped_by_year[0]
+        first_year_group = depreciation_dataframes[0]
 
         # Calculate monthly depreciation for the first year
         first_year_group.at[0, 'depreciation_base'] = first_year_group.at[0, 'investment_amount']
@@ -66,16 +60,8 @@ class CalculationService:
         combined_df = pd.concat([combined_df, first_year_group], ignore_index=True)
 
         # Return the combined result DataFrame
-        logger.debug(f'Final combined DataFrame: {combined_df}')
+        logger.debug(f"Final combined DataFrame: {combined_df}")
         return combined_df
-
-    @staticmethod
-    def calculate_subsequent_years_depreciation(result_df, dep_start_year, depreciation_percentage):
-        # Define subsequent_years_group to resolve the undefined variable issue
-        pass
-#        subsequent_years_group = pd.DataFrame()
-#
-#        return subsequent_years_group
 
     @staticmethod
     def calculate_depreciation_years(project_id: str):
@@ -206,11 +192,11 @@ class CalculationService:
                     logger.debug(f'First depreciation year: {current_year}, month: {current_month}, total_investment: {total_investment}')
 
                     # Create DataFrame for the first depreciation year
-                    months = list(range(1, 13))
-                    investment_amounts = [0] * 12
-                    investment_amounts[current_month - 1] = total_investment
+                    months = list(range(current_month, 13))  # Include months from start month to December
+                    investment_amounts = [0] * len(months)
+                    investment_amounts[0] = total_investment  # Place investment in the start month
                     depreciation_dataframes.append(
-                        pd.DataFrame({'year': [current_year] * 12, 'month': months, 'investment_amount': investment_amounts})
+                        pd.DataFrame({'year': [current_year] * len(months), 'month': months, 'investment_amount': investment_amounts})
                     )
                 else:
                     # Subsequent depreciation year and month
