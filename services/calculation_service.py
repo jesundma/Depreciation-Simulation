@@ -87,6 +87,14 @@ class CalculationService:
 
         # Modify log to present all rows of the final DataFrame
         logger.debug(f"Final combined DataFrame (all rows):\n{combined_df.to_string(index=False)}")
+
+        # Save the final DataFrame to the database
+        final_columns = ['year', 'month', 'depreciation_base', 'monthly_depreciation', 'remainder', 'cost_center']
+        if not set(final_columns).issubset(combined_df.columns):
+            raise ValueError(f"Final DataFrame is missing required columns: {final_columns}")
+
+        depreciation_repo.save_calculated_depreciations(project_id, combined_df[final_columns])
+
         return combined_df
 
     @staticmethod

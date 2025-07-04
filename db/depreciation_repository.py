@@ -109,15 +109,18 @@ class DepreciationRepository(BaseRepository):
         df.columns = df.columns.str.lower()
 
         # Ensure required columns exist
-        if not {'year', 'depreciation', 'remaining asset value'}.issubset(df.columns):
-            raise ValueError("Missing required columns in the DataFrame: 'year', 'depreciation', 'remaining asset value'")
+        required_columns = {'year', 'month', 'depreciation_base', 'monthly_depreciation', 'remainder'}
+        if not required_columns.issubset(df.columns):
+            raise ValueError(f"Missing required columns in the DataFrame: {required_columns - set(df.columns)}")
 
         query = """
-            INSERT INTO calculated_depreciations (project_id, year, depreciation_value, remaining_value)
+            INSERT INTO calculated_depreciations (project_id, year, month, depreciation_base, monthly_depreciation, remainder, cost_center)
             VALUES %s
-            ON CONFLICT (project_id, year) DO UPDATE
-            SET depreciation_value = EXCLUDED.depreciation_value,
-                remaining_value = EXCLUDED.remaining_value;
+            ON CONFLICT (project_id, year, month) DO UPDATE
+            SET depreciation_base = EXCLUDED.depreciation_base,
+                monthly_depreciation = EXCLUDED.monthly_depreciation,
+                remainder = EXCLUDED.remainder,
+                cost_center = EXCLUDED.cost_center;
         """
 
         # Prepare data for batch insertion
@@ -125,8 +128,11 @@ class DepreciationRepository(BaseRepository):
             (
                 project_id,
                 int(row["year"]),
-                float(row["depreciation"]),
-                float(row["remaining asset value"])
+                int(row["month"]),
+                float(row["depreciation_base"]),
+                float(row["monthly_depreciation"]),
+                float(row["remainder"]), 
+                str(row["cost_center"])
             )
             for _, row in df.iterrows()
         ]
