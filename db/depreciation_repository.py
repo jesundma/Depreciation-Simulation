@@ -137,6 +137,11 @@ class DepreciationRepository(BaseRepository):
             for _, row in df.iterrows()
         ]
 
+        # Debugging: Log the prepared data for batch insertion
+        print("[DEBUG] Prepared data for batch insertion:")
+        for record in data:
+            print(record)
+
         try:
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
                 with conn.cursor() as cursor:
