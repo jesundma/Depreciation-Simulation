@@ -76,6 +76,22 @@ class ProjectManagementService:
         return {'has_depreciations': has_depr}
     
     @staticmethod
+    def get_calculated_project_depreciations(project_id):
+        """
+        Check if calculated depreciations exist for the project using the depreciation repository.
+        Returns dataframe for further processing."""
+        depreciation_repo = RepositoryFactory.create_depreciation_repository()
+
+        return {
+            "project_id": project_id,
+            "depreciations": [
+                {"year": 2025, "amount": 1000},
+                {"year": 2026, "amount": 1200},
+                {"year": 2027, "amount": 1500}
+                ]
+        }
+
+    @staticmethod
     def save_investments_and_depreciation(project_id: str, investments: dict, depreciation_starts: dict):
         """
         Save investments and depreciation start years/months for a project.

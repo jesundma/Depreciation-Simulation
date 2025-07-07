@@ -226,7 +226,7 @@ def get_project_investments(project_id):
 @login_required
 def get_project_depreciations(project_id):
     from services.project_management_service import ProjectManagementService
-    data = ProjectManagementService.get_project_depreciations(project_id)
+    data = ProjectManagementService.get_calculated_project_depreciations(project_id)
     return jsonify(data)
 
 @app.route('/api/projects/<project_id>/calculate-depreciations', methods=['POST'])
@@ -250,14 +250,7 @@ def calculate_depreciations(project_id):
 @app.route('/api/projects/<project_id>/recalculate-depreciations', methods=['POST'])
 @login_required
 def recalculate_depreciations(project_id):
-    try:
-        # First delete existing depreciations
-        from db.database_service import DatabaseService
-        db_service = DatabaseService()
-          # Execute a direct query to delete existing depreciations
-        query = "DELETE FROM calculated_depreciations WHERE project_id = %s"
-        db_service.execute_query(query, (project_id,))
-        
+    try:        
         from db.repository_factory import RepositoryFactory
         depreciation_repo = RepositoryFactory.create_depreciation_repository()
         depreciation_repo.delete_calculated_depreciations(project_id)

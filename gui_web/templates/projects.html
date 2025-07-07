@@ -383,7 +383,8 @@
           const tabPane = document.createElement('div');
           tabPane.className = 'tab-pane fade';
           tabPane.id = contentId;
-          tabPane.setAttribute('role', 'tabpanel');          tabPane.innerHTML = `
+          tabPane.setAttribute('role', 'tabpanel');
+          tabPane.innerHTML = `
             <form class="mt-3" onsubmit="saveProject(event, '${projectId}')">
               <div class="mb-3"><label>Project Id</label><input class="form-control" name="project_id" value="${proj.project_id || ''}" readonly></div>
               <div class="mb-3"><label>Branch</label><input class="form-control" name="branch" value="${proj.branch || ''}"></div>
@@ -392,7 +393,11 @@
               <div class="mb-3"><label>Depreciation Method</label><input class="form-control" name="depreciation_method" value="${proj.depreciation_method || ''}"></div>
               <div class="mb-3"><label>Cost Center</label><input class="form-control" name="cost_center" value="${proj.cost_center || ''}"></div>
               <hr>
-              <h5>Investments & Depreciation Starts</h5>              <div id="investment-table-${projectId}"></div>
+              <h5>Investments & Depreciation Starts</h5>
+              <div id="investment-table-${projectId}"></div>
+              <hr>
+              <h5>Calculated Depreciations</h5>
+              <div id="depreciation-table-${projectId}"></div>
               <button type="button" class="btn btn-outline-primary mt-2" onclick="openInvestmentModal('${projectId}')">Edit Investments/Depreciation</button>
               <div id="depreciation-buttons-${projectId}" class="mt-3">
                 <!-- Depreciation buttons will be loaded here -->
