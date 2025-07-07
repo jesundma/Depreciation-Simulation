@@ -3,6 +3,7 @@ from db.repository_factory import RepositoryFactory
 from models.project_model import Project
 from typing import Optional
 import json
+import pandas as pd
 
 class ProjectManagementService:
     @staticmethod
@@ -78,17 +79,27 @@ class ProjectManagementService:
     @staticmethod
     def get_calculated_project_depreciations(project_id):
         """
-        Check if calculated depreciations exist for the project using the depreciation repository.
-        Returns dataframe for further processing."""
+        Fetch calculated depreciations for the project using the depreciation repository.
+        Returns a dataframe for further processing.
+        """
         depreciation_repo = RepositoryFactory.create_depreciation_repository()
+        query_result = depreciation_repo.get_all_depreciations_by_project(project_id)
+
+        # Create a DataFrame from the query result
+        df = pd.DataFrame(query_result)
+
+        # Drop all columns except 'year' and 'monthly_depreciation'
+        df = df[['year', 'monthly_depreciation']]
+
+        # Group the DataFrame by years and sum the monthly depreciation
+        grouped_df = df.groupby('year').sum().reset_index()
+
+        # Convert the grouped DataFrame to the appropriate format for return value
+        depreciations = grouped_df.to_dict(orient='records')
 
         return {
             "project_id": project_id,
-            "depreciations": [
-                {"year": 2025, "amount": 1000},
-                {"year": 2026, "amount": 1200},
-                {"year": 2027, "amount": 1500}
-                ]
+            "depreciations": depreciations
         }
 
     @staticmethod

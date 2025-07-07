@@ -195,3 +195,17 @@ class DepreciationRepository(BaseRepository):
         """
         query = "DELETE FROM calculated_depreciations WHERE project_id = %s"
         self.execute_query(query, (project_id,))
+
+    def get_all_depreciations_by_project(self, project_id):
+        """
+        Fetch all depreciation rows for a given project ID.
+        :param project_id: The ID of the project.
+        :return: A list of dictionaries containing depreciation data.
+        """
+        query = """
+            SELECT * FROM calculated_depreciations
+            WHERE project_id = %s
+        """
+        params = (project_id,)
+        result = self.execute_query(query, params, fetch=True)
+        return result if result else []
