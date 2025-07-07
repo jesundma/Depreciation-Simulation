@@ -729,6 +729,17 @@
         loadDepreciationButtons(projectId);
       });
     }
+
+    // Render depreciation table for project
+    function renderDepreciationTableForProject(projectId, depreciations = []) {
+      let html = '<table class="table table-bordered text-center">';
+      html += '<thead><tr><th>Year</th><th>Depreciation</th></tr></thead><tbody>';
+      depreciations.forEach(depr => {
+        html += `<tr><td>${depr.year}</td><td>${depr.amount}</td></tr>`;
+      });
+      html += '</tbody></table>';
+      document.getElementById(`depreciation-table-${projectId}`).innerHTML = html;
+    }
     </script>
 </body>
 </html>
