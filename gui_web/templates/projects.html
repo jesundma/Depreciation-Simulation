@@ -412,7 +412,13 @@
             .then(investments => {
               renderInvestmentTableForProject(projectId, investments, true); // true = read-only
             });
-            // Load depreciation buttons
+          fetch(`/project-depreciations/${projectId}`)
+            .then(response => response.json())
+            .then(depreciations => {
+              renderDepreciationTableForProject(projectId, depreciations.depreciations || []);
+          });
+
+          // Load depreciation buttons
           loadDepreciationButtons(projectId);
           
           // Activate new tab after a short delay to ensure DOM is updated
