@@ -94,6 +94,10 @@ class ProjectManagementService:
         # Group the DataFrame by years and sum the monthly depreciation
         grouped_df = df.groupby('year').sum().reset_index()
 
+        # Rename the 'monthly_depreciation' column to 'amount'
+        # This is necessary to match the expected output format
+        grouped_df.rename(columns={'monthly_depreciation': 'amount'}, inplace=True)
+
         # Convert the grouped DataFrame to the appropriate format for return value
         depreciations = grouped_df.to_dict(orient='records')
 
