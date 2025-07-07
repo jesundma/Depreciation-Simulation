@@ -262,16 +262,23 @@
             throw new Error(`Server returned status ${response.status}: ${response.statusText}`);
           }
           return response.json();
-        })        .then(data => {
+        })
+        .then(data => {
           let html = '';
           if (!Array.isArray(data) || data.length === 0) {
             html = '<div class="alert alert-warning">No projects found.</div>';
           } else {
+            if (data.length === 1) {
+              // Automatically open the single project in a tab
+              openProjectTab(data[0].project_id);
+              return;
+            }
             html += '<table class="table table-bordered"><thead><tr><th></th>';
             projectFields.forEach(function(field) {
               html += `<th>${field.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</th>`;
             });
-            html += '</tr></thead><tbody>';            data.forEach(function(proj) {
+            html += '</tr></thead><tbody>';
+            data.forEach(function(proj) {
               if (typeof proj !== 'object' || proj === null) return;
               html += '<tr>';
               html += `<td><input type="checkbox" name="project_id" value="${proj.project_id || ''}"></td>`;
@@ -294,7 +301,8 @@
           }
           const resultsModal = new bootstrap.Modal(document.getElementById('resultsModal'));
           resultsModal.show();
-        })        .catch(err => {
+        })
+        .catch(err => {
           console.error('Search error:', err);
           document.getElementById('search-results-container').innerHTML = 
             '<div class="alert alert-danger">Error fetching results: ' + err.message + '</div>';
@@ -305,7 +313,8 @@
           
           // Ensure backdrop is properly managed
           setTimeout(cleanupModalBackdrops, 150);
-        });    });    // Handle opening selected projects in tabs
+        });    });    
+    // Handle opening selected projects in tabs
     document.getElementById('select-projects-form').addEventListener('submit', function(e) {
       e.preventDefault();
       console.log('Form submitted, processing selection...');

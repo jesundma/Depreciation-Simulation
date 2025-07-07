@@ -1,4 +1,5 @@
 from db.database_service import DatabaseService
+from db.repository_factory import RepositoryFactory
 from models.project_model import Project
 from typing import Optional
 import json
@@ -67,11 +68,11 @@ class ProjectManagementService:
     @staticmethod
     def get_project_depreciations(project_id):
         """
-        Placeholder: Check if calculated depreciations exist for the project.
+        Check if calculated depreciations exist for the project using the depreciation repository.
         Returns {'has_depreciations': True/False}.
         """
-        db_service = DatabaseService()
-        has_depr = db_service.has_calculated_depreciations(project_id)
+        depreciation_repo = RepositoryFactory.create_depreciation_repository()
+        has_depr = depreciation_repo.has_calculated_depreciations(project_id)
         return {'has_depreciations': has_depr}
     
     @staticmethod
@@ -82,7 +83,6 @@ class ProjectManagementService:
         :param investments: Dict of {year: amount}
         :param depreciation_starts: Dict of {year: (start_year, start_month)}
         """
-        from db.repository_factory import RepositoryFactory
         investment_repo = RepositoryFactory.create_investment_repository()
 
         # Convert tickmarks or invalid year formats to integers

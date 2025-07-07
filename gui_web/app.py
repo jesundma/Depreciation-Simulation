@@ -258,6 +258,10 @@ def recalculate_depreciations(project_id):
         query = "DELETE FROM calculated_depreciations WHERE project_id = %s"
         db_service.execute_query(query, (project_id,))
         
+        from db.repository_factory import RepositoryFactory
+        depreciation_repo = RepositoryFactory.create_depreciation_repository()
+        depreciation_repo.delete_calculated_depreciations(project_id)
+        
         # Then calculate new ones
         from services.calculation_service import CalculationService
         method_type = CalculationService.handle_depreciation_calculation(project_id)
@@ -275,15 +279,10 @@ def recalculate_depreciations(project_id):
 @login_required
 def has_calculated_depreciations(project_id):
     try:
-        from db.database_service import DatabaseService
-        db_service = DatabaseService()
-          # Use the existing query from database_service.py
-        has_depreciations = db_service.has_calculated_depreciations(project_id)
-        
-        # For now, force to False as requested
-        return jsonify({'has_calculated_depreciations': False})
-        # When ready to use actual database result, uncomment the following line and delete the line above
-        # return jsonify({'has_calculated_depreciations': has_depreciations})
+        from services.project_management_service import ProjectManagementService
+        # Use ProjectManagementService to check depreciations
+        has_depreciations = ProjectManagementService.get_project_depreciations(project_id)
+        return jsonify({'has_calculated_depreciations': has_depreciations['has_depreciations']})
     except Exception as e:
         return jsonify({'has_calculated_depreciations': False, 'error': str(e)})
 

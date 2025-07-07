@@ -188,3 +188,10 @@ class DepreciationRepository(BaseRepository):
         params = (project_id,)
         result = self.execute_query(query, params, fetch=True)
         return result[0]['depreciation_percentage'] if result else None
+
+    def delete_calculated_depreciations(self, project_id):
+        """
+        Delete all calculated depreciations for a given project.
+        """
+        query = "DELETE FROM calculated_depreciations WHERE project_id = %s"
+        self.execute_query(query, (project_id,))
