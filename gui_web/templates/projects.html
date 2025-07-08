@@ -272,6 +272,30 @@
             if (data.length === 1) {
               // Automatically open the single project in a tab
               openProjectTab(data[0].project_id);
+
+              // Close search modal and results container
+              const searchModalElement = document.getElementById('searchModal');
+              if (searchModalElement) {
+                const searchModal = bootstrap.Modal.getInstance(searchModalElement);
+                if (searchModal) {
+                  searchModal.hide();
+                }
+              }
+
+              const searchResultsContainer = document.getElementById('search-results-container');
+              if (searchResultsContainer) {
+                searchResultsContainer.innerHTML = '';
+              }
+
+              // Ensure cleanup after project tab is opened
+              setTimeout(() => {
+                cleanupModalBackdrops();
+                const resultsModalElement = document.getElementById('resultsModal');
+                if (resultsModalElement) {
+                  resultsModalElement.classList.remove('show');
+                  resultsModalElement.style.display = 'none';
+                }
+              }, 150);
               return;
             }
             html += '<table class="table table-bordered"><thead><tr><th></th>';
