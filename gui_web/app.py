@@ -235,13 +235,11 @@ def calculate_depreciations(project_id):
     try:
         # Call the existing calculation service
         from services.calculation_service import CalculationService
-        method_type, debug_df = CalculationService.handle_depreciation_calculation(project_id)
-        debug_df_str = debug_df.head(24).to_string(index=False) if debug_df is not None else None
-        # Return the method_type and debug DataFrame string for debugging
+        method_type = CalculationService.handle_depreciation_calculation(project_id)
+        # Return the method_type for debugging
         return jsonify({
             'success': True, 
             'method_type': method_type,
-            'debug_df_str': debug_df_str,
             'message': f"Debug info: Depreciation method type is '{method_type}'"
         })
     except Exception as e:
@@ -320,6 +318,11 @@ def save_investments_and_depreciation(project_id):
     except Exception as e:
         logging.error(f"Error saving investments and depreciation for project {project_id}: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/profile')
+@login_required
+def profile_page():
+    return render_template('profile.html')
 
 if __name__ == '__main__':
     app.run(debug=True)

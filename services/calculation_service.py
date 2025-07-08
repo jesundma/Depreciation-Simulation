@@ -103,14 +103,19 @@ class CalculationService:
         Calculate years-based depreciation for a project up to the year 2040.
         Returns the result DataFrame for debugging (placeholder for now).
         """
+        # Use repository factory to get repository instances
         investment_repo = RepositoryFactory.create_investment_repository()
         depreciation_repo = RepositoryFactory.create_depreciation_repository()
+
+        # Get investment schedule directly from the repository
         investment_data = investment_repo.get_investment_schedule(project_id)
+        logger.debug(f'investment_data: {investment_data}')  # Debug: show raw investment data
         df = pd.DataFrame(investment_data)
-        df.columns = df.columns.str.lower()
-        # ...existing code for years-based depreciation...
-        # For now, return the empty DataFrame for debugging
-        return df
+
+        # Preprocess the investment data using the preprocess_depreciation_years_data function
+        # Pass project_id to the preprocess_depreciation_data function
+        depreciation_dataframes = CalculationService.preprocess_depreciation_years_data(df, project_id)
+        logger.debug(f'Preprocessed depreciation dataframes: {depreciation_dataframes}')  # Debug: log the preprocessed DataFrames
 
     @staticmethod
     def calculate_depreciation_for_all_projects():
@@ -300,3 +305,19 @@ class CalculationService:
 
         # Return the list of depreciation DataFrames
         return depreciation_dataframes
+    
+    @staticmethod
+    def preprocess_depreciation_years_data(df, project_id):
+        """
+        Preprocess the input DataFrame to create the basis for years-based depreciation DataFrames.
+        Ensure investment_amount is placed in the correct month and include empty years up to 2035.
+        """
+        # Ensure columns are in lowercase
+        df.columns = df.columns.str.lower()
+        logger.debug(f'Initial DataFrame: {df}')  # Debug: log the initial DataFrame
+
+        depreciation_repo = RepositoryFactory.create_depreciation_repository()
+
+        # Define depreciation years
+        depreciation_years = depreciation_repo.get_depreciation_years(project_id)
+        logger.debug(f'Depreciation Years: {depreciation_years}')  # Debug: log the depreciations years

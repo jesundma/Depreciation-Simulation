@@ -13,7 +13,10 @@
         <a href="/import" class="btn btn-warning mb-2 ms-2">Admin: Import Data</a>
         <a href="/admin" class="btn btn-warning mb-2 ms-2">Admin: User Management</a>
         {% endif %}
-        <a href="/projects" class="btn btn-outline-primary mb-2 ms-2">Go to Projects Page</a>
+        {% if role =='user' or role == 'admin' %}
+        <a href="/profile" class="btn btn-outline-primary mb-2 ms-2">My Profile</a>
+        {% endif %}
+        <a href="/projects" class="btn btn-outline-primary mb-2 ms-2">Projects</a>
         <a href="/reports" class="btn btn-info mb-2 ms-2">Reports</a>
         <a href="/logout" class="btn btn-danger mb-2 ms-2">Logout</a>
     </div>
@@ -23,6 +26,9 @@
             {% if role == 'admin' %}
             <li class="list-group-item"><a href="/import">Admin: Import Data</a></li>
             <li class="list-group-item"><a href="/admin">Admin: User Management</a></li>
+            {% endif %}
+            {% if role =='user' or role == 'admin' %}
+            <li class="list-group-item"><a href="/profile">My Profile</a></li>
             {% endif %}
             <li class="list-group-item"><a href="/projects">Projects</a></li>
             <li class="list-group-item"><a href="/reports">Reports</a></li>

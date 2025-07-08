@@ -188,6 +188,22 @@ class DepreciationRepository(BaseRepository):
         params = (project_id,)
         result = self.execute_query(query, params, fetch=True)
         return result[0]['depreciation_percentage'] if result else None
+    
+    def get_depreciation_years(self, project_id):
+        """
+        Fetch the depreciation years for a given project ID.
+        :param project_id: The ID of the project.
+        :return: Depreciation years value.
+        """
+        query = """
+        SELECT ds.depreciation_years
+        FROM depreciation_schedules ds
+        JOIN projects p ON ds.depreciation_id = p.depreciation_method
+        WHERE p.project_id = %s;
+        """
+        params = (project_id,)
+        result = self.execute_query(query, params, fetch=True)
+        return result[0]['depreciation_years'] if result else None
 
     def delete_calculated_depreciations(self, project_id):
         """
