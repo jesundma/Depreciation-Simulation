@@ -257,6 +257,8 @@ class CalculationService:
                     # Push investment to the next year
                     pushed_investments += investment
                     logger.debug(f'Pushed investment: {investment}, total pushed: {pushed_investments}')
+                    with open(log_path, 'a') as log_file:
+                        log_file.write(f'Pushed investment: {investment}, total pushed: {pushed_investments}\n')
 
         # Ensure all years up to 2035 are included
         all_years = set(range(df['year'].min(), 2036))
@@ -318,6 +320,80 @@ class CalculationService:
 
         depreciation_repo = RepositoryFactory.create_depreciation_repository()
 
-        # Define depreciation years
+        # Define depreciation years and convert to months 
         depreciation_years = depreciation_repo.get_depreciation_years(project_id)
         logger.debug(f'Depreciation Years: {depreciation_years}')  # Debug: log the depreciations years
+        depreciation_years_to_months = depreciation_years * 12
+
+        pushed_investments = 0
+        depreciation_dataframes = []
+
+        # Store the original value of depreciation_years_to_months
+        original_depreciation_years_to_months = depreciation_years_to_months
+
+
+        for index, row in df.iterrows():
+            year = int(row['year'])
+            month = int(row['month']) if not pd.isna(row['month']) else None
+            investment = float(row['investment_amount'])  # Ensure investment is a float
+
+            if not pd.isna(row['start_year']) and not pd.isna(row['month']):
+                # Depreciation year and month encountered
+                total_investment = pushed_investments + investment
+                pushed_investments = 0
+
+                logger.debug(f'First depreciation year: {year}, month: {month}, total_investment: {total_investment}')
+
+                # Create DataFrame for the first depreciation year
+                months = list(range(month, 13))  # Include months from start month to December
+                investment_amounts = [0] * len(months)
+                investment_amounts[0] = total_investment  # Place investment in the start month
+                df_new = pd.DataFrame({
+                    'year': [year] * len(months),
+                    'month': months,
+                    'investment_amount': investment_amounts,
+                    'depreciation_base': [0.0] * len(months),
+                    'monthly_depreciation': [0.0] * len(months),
+                    'remainder': [0.0] * len(months)
+                })
+
+                # Deduct the number of rows (months) created for the first year
+                depreciation_years_to_months -= len(months)
+
+                # Add additional rows for depreciation years
+                while depreciation_years_to_months > 0:
+                    year += 1
+                    if depreciation_years_to_months > 12:
+                        months = list(range(1, 13))
+                        depreciation_years_to_months -= 12
+                    else:
+                        months = list(range(1, depreciation_years_to_months + 1))
+                        depreciation_years_to_months = 0
+
+                    df_new = pd.concat([
+                        df_new,
+                        pd.DataFrame({
+                            'year': [year] * len(months),
+                            'month': months,
+                            'investment_amount': [0.0] * len(months),
+                            'depreciation_base': [0.0] * len(months),
+                            'monthly_depreciation': [0.0] * len(months),
+                            'remainder': [0.0] * len(months)
+                        })
+                    ], ignore_index=True)
+
+                # Restore the original value of depreciation_years_to_months
+                depreciation_years_to_months = original_depreciation_years_to_months
+
+                depreciation_dataframes.append(df_new)
+                logger.debug(f'Created DataFrame: {df_new}')
+                with open(log_path, 'a') as log_file:
+                    log_file.write(f'Created DataFrame: {df_new}\n')
+
+            else:
+                pushed_investments += investment
+                logger.debug(f'Pushed investment: {investment}, total pushed: {pushed_investments}')
+                with open(log_path, 'a') as log_file:
+                    log_file.write(f'Pushed investment: {investment}, total pushed: {pushed_investments}\n')
+
+        return depreciation_dataframes
