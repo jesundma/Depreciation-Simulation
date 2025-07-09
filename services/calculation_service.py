@@ -101,7 +101,7 @@ class CalculationService:
     def calculate_depreciation_years(project_id: str):
         """
         Calculate years-based depreciation for a project up to the year 2040.
-        Returns the result DataFrame for debugging (placeholder for now).
+        Returns the result DataFrame for debugging.
         """
         # Use repository factory to get repository instances
         investment_repo = RepositoryFactory.create_investment_repository()
@@ -113,10 +113,29 @@ class CalculationService:
         df = pd.DataFrame(investment_data)
 
         # Preprocess the investment data using the preprocess_depreciation_years_data function
-        # Pass project_id to the preprocess_depreciation_data function
         depreciation_dataframes = CalculationService.preprocess_depreciation_years_data(df, project_id)
-        logger.debug(f'Preprocessed depreciation dataframes: {depreciation_dataframes}')  # Debug: log the preprocessed DataFrames
 
+        # Iterate over each DataFrame in depreciation_dataframes
+        for df in depreciation_dataframes:
+            num_rows = len(df)
+            monthly_depreciation = df.at[0, 'investment_amount'] / num_rows
+            df.at[0, 'depreciation_base'] = df.at[0, 'investment_amount']
+
+            for i in range(num_rows):
+                if i == 0:
+                    df.at[i, 'remainder'] = df.at[i, 'depreciation_base'] - monthly_depreciation
+                else:
+                    df.at[i, 'depreciation_base'] = df.at[i - 1, 'remainder']
+                    df.at[i, 'remainder'] = df.at[i, 'depreciation_base'] - monthly_depreciation
+                df.at[i, 'monthly_depreciation'] = monthly_depreciation
+
+            # Log the processed DataFrame to depreciations_debug.log
+            logger.debug(f"Processed DataFrame:\n{df}")
+            with open(log_path, 'a') as log_file:
+                log_file.write(f"Processed DataFrame:\n{df}\n")
+
+        return depreciation_dataframes
+    
     @staticmethod
     def calculate_depreciation_for_all_projects():
         """
