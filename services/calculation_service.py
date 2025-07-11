@@ -129,12 +129,38 @@ class CalculationService:
                     df.at[i, 'remainder'] = df.at[i, 'depreciation_base'] - monthly_depreciation
                 df.at[i, 'monthly_depreciation'] = monthly_depreciation
 
-            # Log the processed DataFrame to depreciations_debug.log
-            logger.debug(f"Processed DataFrame:\n{df}")
+        # Combine all dataframes into a single DataFrame and aggregate by year and month
+        required_columns = ['year', 'month', 'depreciation_base', 'monthly_depreciation', 'remainder', 'cost_center']
+        if depreciation_dataframes:
+            combined_df = pd.concat(depreciation_dataframes, ignore_index=True)
+            # Group by year and month, summing all numeric columns
+            numeric_cols = combined_df.select_dtypes(include='number').columns
+            group_cols = ['year', 'month']
+            agg_dict = {col: 'sum' for col in numeric_cols if col not in group_cols}
+            combined_df = combined_df.groupby(group_cols, as_index=False).agg(agg_dict)
+            # Fetch cost_center data for the project using the project_id
+            project_repo = RepositoryFactory.create_project_repository()
+            cost_center = project_repo.get_cost_center(project_id)
+            # Add cost_center column to each row
+            combined_df['cost_center'] = cost_center
+            # Ensure all required columns exist
+            for col in required_columns:
+                if col not in combined_df.columns:
+                    combined_df[col] = 0 if col != 'cost_center' else cost_center
+            logger.debug(f"Combined and aggregated DataFrame by year and month:\n{combined_df}")
             with open(log_path, 'a') as log_file:
-                log_file.write(f"Processed DataFrame:\n{df}\n")
+                log_file.write(f"Combined and aggregated DataFrame by year and month:\n{combined_df}\n")
+        else:
+            combined_df = pd.DataFrame(columns=required_columns)
 
-        return depreciation_dataframes
+        # Save the final DataFrame to the database
+        final_columns = required_columns
+        if not set(final_columns).issubset(combined_df.columns):
+            raise ValueError(f"Final DataFrame is missing required columns: {final_columns}")
+
+        depreciation_repo.save_calculated_depreciations(project_id, combined_df[final_columns])
+
+        return combined_df
     
     @staticmethod
     def calculate_depreciation_for_all_projects():
@@ -405,14 +431,7 @@ class CalculationService:
                 depreciation_years_to_months = original_depreciation_years_to_months
 
                 depreciation_dataframes.append(df_new)
-                logger.debug(f'Created DataFrame: {df_new}')
-                with open(log_path, 'a') as log_file:
-                    log_file.write(f'Created DataFrame: {df_new}\n')
-
             else:
                 pushed_investments += investment
-                logger.debug(f'Pushed investment: {investment}, total pushed: {pushed_investments}')
-                with open(log_path, 'a') as log_file:
-                    log_file.write(f'Pushed investment: {investment}, total pushed: {pushed_investments}\n')
-
+        
         return depreciation_dataframes
