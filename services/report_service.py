@@ -93,29 +93,33 @@ class ReportService:
         print(f"[INFO] Grouped data with years as columns has been saved to {output_file}.")
 
     @staticmethod
-    def create_depreciations_by_cost_center_report(output_file="depreciations_by_cost_center.xlsx"):
+    def save_dataframe_to_excel(df, output_file, sheet_name):
         """
-        Generate a depreciation report grouped by cost center.
+        General method to save a DataFrame to an Excel file.
         """
-        db_service = DatabaseService()
-        # Example query: fetch depreciations grouped by cost center, year, and month
-        query = '''
-            SELECT cost_center, year, month, SUM(monthly_depreciation) AS total_depreciation
-            FROM depreciations
-            GROUP BY cost_center, year, month
-            ORDER BY cost_center, year, month
-        '''
-        data = db_service.execute_query(query, fetch=True)
+        import openpyxl
+        with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name=sheet_name)
+        print(f"[INFO] DataFrame saved to {output_file} (sheet: {sheet_name}).")
+
+    @staticmethod
+    def create_depreciations_by_cost_center_report():
+        """
+        Generate a depreciation report grouped by cost center using the report repository.
+        Returns the resulting DataFrame.
+        """
+        from db.repository_factory import RepositoryFactory
+        report_repo = RepositoryFactory.create_report_repository()
+        # Fetch depreciations grouped by cost center, year, and month
+        data = report_repo.fetch_depreciations_by_cost_center()
+        import pandas as pd
         df = pd.DataFrame(data)
         # Pivot table: cost_center as index, year and month as columns
         if not df.empty:
             df_pivot = df.pivot_table(index=['cost_center'], columns=['year', 'month'], values='total_depreciation', aggfunc='sum', fill_value=0)
         else:
             df_pivot = pd.DataFrame()
-        # Write to Excel
-        with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-            df_pivot.to_excel(writer, sheet_name='Depreciations by Cost Center')
-        print(f"[INFO] Depreciations by cost center report saved to {output_file}.")
+        return df_pivot
 
     @staticmethod
     def create_investments_by_year_report(output_file="investments_by_year.xlsx"):

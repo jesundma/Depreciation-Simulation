@@ -105,3 +105,28 @@ class ReportRepository(BaseRepository):
                 pc.importance, pc.type, p.branch, p.operations, p.project_id, i.year;
         """
         return self.execute_query(query, fetch=True)
+
+    def fetch_depreciations_by_cost_center(self):
+        """
+        Fetch depreciations grouped by cost center, year, and month.
+        Logs the query and results to report_debug.log.
+        """
+        import logging
+        import os
+        log_path = os.path.join(os.path.dirname(__file__), '..', 'report_debug.log')
+        logger = logging.getLogger('report_debug_logger')
+        logger.setLevel(logging.DEBUG)
+        if not logger.handlers:
+            file_handler = logging.FileHandler(log_path, mode='a')
+            file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
+            logger.addHandler(file_handler)
+        query = '''
+            SELECT cost_center, year, month, SUM(monthly_depreciation) AS total_depreciation
+            FROM calculated_depreciations
+            GROUP BY cost_center, year, month
+            ORDER BY cost_center, year, month
+        '''
+        logger.debug(f"Executing query: {query}")
+        data = self.execute_query(query, fetch=True)
+        logger.debug(f"Query result: {data}")
+        return data

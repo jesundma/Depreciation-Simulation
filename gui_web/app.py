@@ -327,15 +327,12 @@ def profile_page():
 @app.route('/depreciations-by-cost-center')
 @login_required
 def depreciations_by_cost_center():
-    # Import the report service
     from services.report_service import ReportService
-    # Generate the report and get the output file path
-    output_file = 'depreciations_by_cost_center.xlsx'
-    # You may want to implement a method in ReportService for this report
     try:
-        ReportService.create_depreciations_by_cost_center_report(output_file=output_file)
-        # Optionally, send the file for download or render a success message
-        return render_template('report_success.html', report_name=output_file)
+        df = ReportService.create_depreciations_by_cost_center_report()
+        # Show DataFrame as HTML table
+        table_html = df.to_html(classes='table table-striped', border=0)
+        return render_template('view_dataframe.html', table_html=table_html)
     except Exception as e:
         app.logger.error(f"Error generating depreciations by cost center report: {str(e)}", exc_info=True)
         return render_template('report_error.html', error=str(e))
