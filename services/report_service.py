@@ -4,13 +4,6 @@ import openpyxl
 from openpyxl.styles import PatternFill
 
 class ReportService:
-    @staticmethod
-    def create_investment_depreciation_report(output_file="depreciation_report.xlsx"):
-        """
-        Generate a depreciation report grouped by importance, branch, and operations.
-        """
-        db_service = DatabaseService()
-        # ...existing code for creating depreciation report...
 
     @staticmethod
     def group_projects_by_importance(output_file="importance_and_type_grouped_data.xlsx"):
@@ -98,3 +91,47 @@ class ReportService:
                         cell.fill = fill
 
         print(f"[INFO] Grouped data with years as columns has been saved to {output_file}.")
+
+    @staticmethod
+    def create_depreciations_by_cost_center_report(output_file="depreciations_by_cost_center.xlsx"):
+        """
+        Generate a depreciation report grouped by cost center.
+        """
+        db_service = DatabaseService()
+        # Example query: fetch depreciations grouped by cost center, year, and month
+        query = '''
+            SELECT cost_center, year, month, SUM(monthly_depreciation) AS total_depreciation
+            FROM depreciations
+            GROUP BY cost_center, year, month
+            ORDER BY cost_center, year, month
+        '''
+        data = db_service.execute_query(query, fetch=True)
+        df = pd.DataFrame(data)
+        # Pivot table: cost_center as index, year and month as columns
+        if not df.empty:
+            df_pivot = df.pivot_table(index=['cost_center'], columns=['year', 'month'], values='total_depreciation', aggfunc='sum', fill_value=0)
+        else:
+            df_pivot = pd.DataFrame()
+        # Write to Excel
+        with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+            df_pivot.to_excel(writer, sheet_name='Depreciations by Cost Center')
+        print(f"[INFO] Depreciations by cost center report saved to {output_file}.")
+
+    @staticmethod
+    def create_investments_by_year_report(output_file="investments_by_year.xlsx"):
+        """
+        Generate an investments report grouped by year.
+        """
+        db_service = DatabaseService()
+        query = '''
+            SELECT year, SUM(investment_amount) AS total_investment
+            FROM investments
+            GROUP BY year
+            ORDER BY year
+        '''
+        data = db_service.execute_query(query, fetch=True)
+        df = pd.DataFrame(data)
+        # Write to Excel
+        with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Investments by Year')
+        print(f"[INFO] Investments by year report saved to {output_file}.")

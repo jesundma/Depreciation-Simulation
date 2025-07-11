@@ -147,9 +147,6 @@ class CalculationService:
             for col in required_columns:
                 if col not in combined_df.columns:
                     combined_df[col] = 0 if col != 'cost_center' else cost_center
-            logger.debug(f"Combined and aggregated DataFrame by year and month:\n{combined_df}")
-            with open(log_path, 'a') as log_file:
-                log_file.write(f"Combined and aggregated DataFrame by year and month:\n{combined_df}\n")
         else:
             combined_df = pd.DataFrame(columns=required_columns)
 

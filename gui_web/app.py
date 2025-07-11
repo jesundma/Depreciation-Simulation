@@ -324,5 +324,33 @@ def save_investments_and_depreciation(project_id):
 def profile_page():
     return render_template('profile.html')
 
+@app.route('/depreciations-by-cost-center')
+@login_required
+def depreciations_by_cost_center():
+    # Import the report service
+    from services.report_service import ReportService
+    # Generate the report and get the output file path
+    output_file = 'depreciations_by_cost_center.xlsx'
+    # You may want to implement a method in ReportService for this report
+    try:
+        ReportService.create_depreciations_by_cost_center_report(output_file=output_file)
+        # Optionally, send the file for download or render a success message
+        return render_template('report_success.html', report_name=output_file)
+    except Exception as e:
+        app.logger.error(f"Error generating depreciations by cost center report: {str(e)}", exc_info=True)
+        return render_template('report_error.html', error=str(e))
+
+@app.route('/investments-by-year')
+@login_required
+def investments_by_year():
+    from services.report_service import ReportService
+    output_file = 'investments_by_year.xlsx'
+    try:
+        ReportService.create_investments_by_year_report(output_file=output_file)
+        return render_template('report_success.html', report_name=output_file)
+    except Exception as e:
+        app.logger.error(f"Error generating investments by year report: {str(e)}", exc_info=True)
+        return render_template('report_error.html', error=str(e))
+
 if __name__ == '__main__':
     app.run(debug=True)
