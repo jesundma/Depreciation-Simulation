@@ -7,21 +7,29 @@ class ImportService:
     @staticmethod
     def read_excel_to_dataframe(title: str, filetypes: list):
         """
-        Common method to read an Excel file and return a DataFrame.
-        :param title: Title for the file dialog.
-        :param filetypes: List of file types for the file dialog.
-        :return: A pandas DataFrame or None if no file is selected.
+        Desktop GUI only: Read an Excel file using a file dialog and return a DataFrame.
+        Not for web context.
         """
         file_path = filedialog.askopenfilename(title=title, filetypes=filetypes)
         if not file_path:
             print("[INFO] No file selected.")
             return None
-        # Always read project_id as string (object)
         df = pd.read_excel(file_path, header=0, dtype={"project_id": str})
-
-        # Convert numeric column names to strings
         df.columns = [str(col).strip() for col in df.columns]
+        return df
 
+    @staticmethod
+    def read_excel_from_upload(file):
+        """
+        Web context: Read an uploaded Excel file and return a DataFrame.
+        :param file: FileStorage object from Flask request.files['file']
+        :return: A pandas DataFrame or None if file is not provided.
+        """
+        if not file:
+            print("[INFO] No file uploaded.")
+            return None
+        df = pd.read_excel(file, header=0, dtype={"project_id": str})
+        df.columns = [str(col).strip() for col in df.columns]
         return df
 
     @staticmethod

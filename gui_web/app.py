@@ -3,6 +3,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 from services.import_service import ImportService
@@ -28,6 +29,9 @@ db.init_app(app)
 
 # Register login/logout routes
 register_login_routes(app)
+
+# Enable CORS
+CORS(app)
 
 # Configure logging
 logging.basicConfig(
@@ -67,18 +71,13 @@ def import_projects():
     if not file or file.filename == '':
         return jsonify({'success': False, 'messages': ['No file selected!']}), 400
     try:
-        # Save the uploaded file to a temporary location
-        temp_path = os.path.join('/tmp', file.filename)
-        file.save(temp_path)
-        # Use the shared backend logic for importing projects
-        ImportService.create_projects_from_dataframe(filepath=temp_path, status_callback=status_callback)
+        # Read the uploaded file directly into a DataFrame (web context)
+        df = ImportService.read_excel_from_upload(file)
+        ImportService.create_projects_from_dataframe(df=df, status_callback=status_callback)
         success = True
     except Exception as e:
         messages.append(f'Error importing projects: {e}')
         success = False
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
     return jsonify({'success': success, 'messages': messages})
 
 @app.route('/import-investments', methods=['POST'])
