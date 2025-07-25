@@ -212,6 +212,12 @@ class ImportService:
                 else:
                     print(msg)
                 return
+        # Use 'start_month' if present, else fallback to 'depreciation_months'
+        month_col = None
+        if "start_month" in df.columns:
+            month_col = "start_month"
+        elif "depreciation_months" in df.columns:
+            month_col = "depreciation_months"
         expanded_rows = []
         for _, row in df.iterrows():
             project_id = str(row["project_id"]).strip()
@@ -224,11 +230,11 @@ class ImportService:
                     print(msg)
                 raise ValueError(msg)
             years = [y.strip() for y in start_year_raw.split(';') if y.strip()]
-            # Handle depreciation_months with robust defaulting
-            if "depreciation_months" not in df.columns or pd.isna(row["depreciation_months"]) or str(row["depreciation_months"]).strip() == "":
+            # Handle start_month or depreciation_months with robust defaulting
+            if month_col is None or pd.isna(row[month_col]) or str(row[month_col]).strip() == "":
                 months = ["1"] * len(years)
             else:
-                months_raw = str(row["depreciation_months"]).strip()
+                months_raw = str(row[month_col]).strip()
                 months = [m.strip() for m in months_raw.split(';') if m.strip()]
                 if len(months) == len(years):
                     pass  # pair by index

@@ -89,16 +89,12 @@ def import_investments():
     if not file or file.filename == '':
         return jsonify({'success': False, 'messages': ['No file selected!']}), 400
     try:
-        temp_path = os.path.join('/tmp', file.filename)
-        file.save(temp_path)
-        ImportService.create_investments_from_dataframe(filepath=temp_path, status_callback=status_callback)
+        df = ImportService.read_excel_from_upload(file)
+        ImportService.create_investments_from_dataframe(df=df, status_callback=status_callback)
         success = True
     except Exception as e:
         messages.append(f'Error importing investments: {e}')
         success = False
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
     return jsonify({'success': success, 'messages': messages})
 
 @app.route('/import-depreciation-starts', methods=['POST'])
@@ -110,9 +106,8 @@ def import_depreciation_starts():
     if not file or file.filename == '':
         return jsonify({'success': False, 'messages': ['No file selected!']}), 400
     try:
-        temp_path = os.path.join('/tmp', file.filename)
-        file.save(temp_path)
-        ImportService.create_depreciation_starts_from_dataframe(filepath=temp_path, status_callback=status_callback)
+        df = ImportService.read_excel_from_upload(file)
+        ImportService.create_depreciation_starts_from_dataframe(df=df, status_callback=status_callback)
         success = True
     except Exception as e:
         import traceback
@@ -123,9 +118,6 @@ def import_depreciation_starts():
         if hasattr(e, 'args') and e.args and 'tuple' in str(e.args[0]):
             messages.append('Possible malformed tuple detected. Check the debug output in the backend logs for tuple samples.')
         success = False
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
     return jsonify({'success': success, 'messages': messages})
 
 @app.route('/search-projects')
