@@ -340,5 +340,28 @@ def investments_by_year():
         app.logger.error(f"Error generating investments by year report: {str(e)}", exc_info=True)
         return render_template('report_error.html', error=str(e))
 
+@app.route('/api/calculate-depreciation-all', methods=['POST'])
+@admin_required
+def calculate_depreciation_all():
+    import logging
+    logging.basicConfig(filename='depreciation_debug.log', level=logging.DEBUG)
+    try:
+        from services.project_management_service import ProjectManagementService
+        messages = []
+        # Get all project IDs
+        project_ids = ProjectManagementService.get_all_project_ids()
+        for pid in project_ids:
+            try:
+                from services.calculation_service import CalculationService
+                method_type = CalculationService.handle_depreciation_calculation(pid)
+                messages.append(f"Project {pid}: Success (method type: {method_type})")
+            except Exception as e:
+                messages.append(f"Project {pid}: Error - {str(e)}")
+        logging.debug(f"/api/calculate-depreciation-all response: success, messages={messages}")
+        return jsonify({'success': True, 'messages': messages})
+    except Exception as e:
+        logging.error(f"/api/calculate-depreciation-all error: {str(e)}")
+        return jsonify({'success': False, 'messages': [str(e)]})
+
 if __name__ == '__main__':
     app.run(debug=True)

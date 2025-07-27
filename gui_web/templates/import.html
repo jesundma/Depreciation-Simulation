@@ -41,6 +41,17 @@
                 <button type="submit" class="btn btn-primary">Import Depreciation Starts</button>
             </form>
         </div>
+    <div class="mb-4">
+        <h3>Import Depreciation Calculation for Existing Asset</h3>
+        <form id="import-existing-depr-form" action="/import-existing-depreciation" method="post" enctype="multipart/form-data">
+            <input type="file" name="file" class="form-control mb-2" required>
+            <button type="submit" class="btn btn-success">Import Depreciation Calculation</button>
+        </form>
+    </div>
+    <div class="mb-4">
+        <h3>Calculate Depreciation for All Projects</h3>
+        <button id="calculate-all-depreciation-btn" class="btn btn-warning">Calculate Depreciation for All Projects</button>
+    </div>
     </div>
 
     <!-- Modal for import status -->
@@ -95,6 +106,36 @@
     handleImportForm('import-projects-form');
     handleImportForm('import-investments-form');
     handleImportForm('import-depreciation-starts-form');
+    handleImportForm('import-existing-depr-form');
+
+    // Calculate depreciation for all projects
+    document.getElementById('calculate-all-depreciation-btn').addEventListener('click', function() {
+        if (!confirm('Are you sure you want to calculate depreciation for all projects? This may take a while.')) return;
+        fetch('/api/calculate-depreciation-all', { method: 'POST' })
+            .then(async response => {
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    // Try to get the raw response text for debugging
+                    let text = '';
+                    try {
+                        text = await response.clone().text();
+                    } catch (err) {
+                        text = '[Could not read response body]';
+                    }
+                    showImportStatus(false, [
+                        `Server error or not authorized. Status: ${response.status} ${response.statusText}`,
+                        text
+                    ]);
+                    return;
+                }
+                showImportStatus(data.success, data.messages || [data.message || 'Done.']);
+            })
+            .catch(err => {
+                showImportStatus(false, ['An error occurred while calculating depreciation for all projects.', err.toString()]);
+            });
+    });
     </script>
 </body>
 </html>

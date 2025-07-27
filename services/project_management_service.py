@@ -7,6 +7,13 @@ import pandas as pd
 
 class ProjectManagementService:
     @staticmethod
+    def get_all_project_ids():
+        """
+        Return a list of all project IDs in the database.
+        """
+        db_service = DatabaseService()
+        return db_service.get_all_project_ids()
+    @staticmethod
     def save_to_database(project: Project):
         """
         Save a project to the database.

@@ -22,6 +22,9 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session or session.get('role') != 'admin':
+            # If AJAX/API request, return JSON error
+            if request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html'] or request.path.startswith('/api/'):
+                return jsonify({'success': False, 'error': 'Admin access required', 'not_authorized': True}), 403
             return redirect(url_for('home'))
         return f(*args, **kwargs)
     return decorated_function
