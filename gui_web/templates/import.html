@@ -75,6 +75,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+
     function showImportStatus(success, messages) {
         const modal = new bootstrap.Modal(document.getElementById('import-status-modal'));
         document.getElementById('import-status-success').innerHTML = success
@@ -84,17 +85,37 @@
         modal.show();
     }
 
-    function handleImportForm(formId) {
+    function showImportProgress(message) {
+        const modal = new bootstrap.Modal(document.getElementById('import-status-modal'));
+        document.getElementById('import-status-success').innerHTML = '<span class="text-info fw-bold">Importing...</span>';
+        document.getElementById('import-status-messages').textContent = message;
+        modal.show();
+    }
+
+
+    function handleImportForm(formId, showProgress = false) {
         const form = document.getElementById(formId);
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const formData = new FormData(form);
+            if (showProgress) {
+                showImportProgress('Importing file...');
+            }
             fetch(form.action, {
                 method: 'POST',
                 body: formData
             })
             .then(response => response.json())
             .then(data => {
+                // If the backend returns number of rows, show it in the progress
+                if (showProgress && data.success && data.messages) {
+                    const rowMsg = data.messages.find(m => m.includes('Imported'));
+                    if (rowMsg) {
+                        showImportProgress(rowMsg);
+                        setTimeout(() => showImportStatus(data.success, data.messages), 1200);
+                        return;
+                    }
+                }
                 showImportStatus(data.success, data.messages);
             })
             .catch(err => {
@@ -103,10 +124,11 @@
         });
     }
 
-    handleImportForm('import-projects-form');
-    handleImportForm('import-investments-form');
-    handleImportForm('import-depreciation-starts-form');
-    handleImportForm('import-existing-depr-form');
+handleImportForm('import-projects-form');
+handleImportForm('import-investments-form');
+handleImportForm('import-depreciation-starts-form');
+// Show progress indicator for the existing depreciation import
+handleImportForm('import-existing-depr-form', true);
 
     // Calculate depreciation for all projects
     document.getElementById('calculate-all-depreciation-btn').addEventListener('click', function() {

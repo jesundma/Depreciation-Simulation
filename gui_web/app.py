@@ -15,8 +15,11 @@ import logging
 # Load environment variables from .env file
 load_dotenv()
 
+
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Needed for flashing messages
+# Increase max upload size to 100MB
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
 
 # Set SQLALCHEMY_DATABASE_URI from environment variable
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')
@@ -79,6 +82,36 @@ def import_projects():
         messages.append(f'Error importing projects: {e}')
         success = False
     return jsonify({'success': success, 'messages': messages})
+
+# Import Depreciation Calculation for Existing Asset (CSV)
+@app.route('/import-existing-depreciation', methods=['POST'])
+@admin_required
+def import_existing_depreciation():
+    from db.existing_asset_depreciation_repository import ExistingAssetDepreciationRepository
+    import pandas as pd
+    file = request.files.get('file')
+    messages = []
+    if not file or file.filename == '':
+        return jsonify({'success': False, 'messages': ['No file selected!']}), 400
+    import traceback
+    try:
+        # Detect encoding using chardet
+        import chardet
+        file_bytes = file.read()
+        result = chardet.detect(file_bytes)
+        encoding = result['encoding'] or 'utf-8'
+        # Read CSV to DataFrame with detected encoding
+        import io
+        df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding)
+        repo = ExistingAssetDepreciationRepository()
+        repo.save_in_chunks(df)
+        messages.append(f"Imported {len(df)} rows to existing_asset_depreciations table. (Encoding: {encoding})")
+        return jsonify({'success': True, 'messages': messages})
+    except Exception as e:
+        tb = traceback.format_exc()
+        messages.append(f'Error importing depreciation calculation: {e}')
+        messages.append(f'Traceback: {tb}')
+        return jsonify({'success': False, 'messages': messages}), 500
 
 @app.route('/import-investments', methods=['POST'])
 def import_investments():
