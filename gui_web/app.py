@@ -396,16 +396,36 @@ def depreciations_by_cost_center():
     from flask import request
     from services.report_service import ReportService
     planned_projects = request.args.get('planned_projects') == '1'
+    existing_projects = request.args.get('existing_projects') == '1'
+    report_type = request.args.get('report_type', 'monthly')
     # If no query params, show settings form
     if not request.args:
         return render_template('depreciations_by_cost_center_settings.html')
     try:
-        # For now, only one option, but logic can be extended
+        import pandas as pd
+        dfs = []
         if planned_projects:
-            df = ReportService.create_depreciations_by_cost_center_report()
+            df_planned = ReportService.create_depreciations_by_cost_center_report(report_type=report_type)
+            if not df_planned.empty:
+                df_planned['Source'] = 'Planned'
+                dfs.append(df_planned)
+        if existing_projects:
+            from db.existing_asset_depreciation_repository import ExistingAssetDepreciationRepository
+            repo = ExistingAssetDepreciationRepository()
+            df_existing = repo.fetch_depreciations_by_cost_center(report_type=report_type)
+            if not df_existing.empty:
+                df_existing['Source'] = 'Existing'
+                dfs.append(df_existing)
+        if dfs:
+            # Combine and sum if both selected, else just show one
+            df = pd.concat(dfs)
+            # If both, group by all columns except 'Source' and sum
+            if planned_projects and existing_projects:
+                group_cols = [col for col in df.columns if col not in ['total_depreciation', 'Source']]
+                df = df.groupby(group_cols + ['Source'], as_index=False)['total_depreciation'].sum()
+            table_html = df.to_html(classes='table table-striped', border=0)
         else:
-            df = ReportService.create_depreciations_by_cost_center_report()  # fallback, same as above
-        table_html = df.to_html(classes='table table-striped', border=0)
+            table_html = '<div class="alert alert-warning">No data selected or available.</div>'
         return render_template('view_dataframe.html', table_html=table_html)
     except Exception as e:
         app.logger.error(f"Error generating depreciations by cost center report: {str(e)}", exc_info=True)

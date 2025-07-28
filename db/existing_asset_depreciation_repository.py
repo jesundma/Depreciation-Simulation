@@ -3,6 +3,30 @@ from psycopg2.extras import execute_values, RealDictCursor
 from db.base_repository import BaseRepository
 
 class ExistingAssetDepreciationRepository(BaseRepository):
+    def fetch_depreciations_by_cost_center(self, report_type='monthly'):
+        """
+        Fetch existing asset depreciations grouped by cost center, year, and month or year.
+        """
+        import pandas as pd
+        import psycopg2
+        from psycopg2.extras import RealDictCursor
+        if report_type == 'yearly':
+            group_cols = 'kustannuspaikka, tilivuosi'
+            select_cols = 'kustannuspaikka as cost_center, tilivuosi as year, SUM(summa) as total_depreciation'
+        else:
+            group_cols = 'kustannuspaikka, tilivuosi, EXTRACT(MONTH FROM om_erä_tapahtumapvm)'
+            select_cols = 'kustannuspaikka as cost_center, tilivuosi as year, EXTRACT(MONTH FROM om_erä_tapahtumapvm) as month, SUM(summa) as total_depreciation'
+        query = f'''
+            SELECT {select_cols}
+            FROM existing_asset_depreciations
+            GROUP BY {group_cols}
+            ORDER BY cost_center, year''' + (', month' if report_type != 'yearly' else '') + '\n'
+        with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(query)
+                data = cursor.fetchall()
+        df = pd.DataFrame(data)
+        return df
     def save_in_chunks(self, df, chunk_size=10000):
         """
         Save a large DataFrame to the existing asset depreciation table in chunks.

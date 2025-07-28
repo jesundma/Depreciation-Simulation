@@ -103,10 +103,11 @@ class ReportService:
         print(f"[INFO] DataFrame saved to {output_file} (sheet: {sheet_name}).")
 
     @staticmethod
-    def create_depreciations_by_cost_center_report():
+    def create_depreciations_by_cost_center_report(report_type='monthly'):
         """
         Generate a depreciation report grouped by cost center using the report repository.
         Returns the resulting DataFrame.
+        report_type: 'monthly' (default) or 'yearly'
         """
         from db.repository_factory import RepositoryFactory
         report_repo = RepositoryFactory.create_report_repository()
@@ -114,11 +115,15 @@ class ReportService:
         data = report_repo.fetch_depreciations_by_cost_center()
         import pandas as pd
         df = pd.DataFrame(data)
-        # Pivot table: cost_center as index, year and month as columns
-        if not df.empty:
-            df_pivot = df.pivot_table(index=['cost_center'], columns=['year', 'month'], values='total_depreciation', aggfunc='sum', fill_value=0)
+        if df.empty:
+            return pd.DataFrame()
+        if report_type == 'yearly':
+            # Group by cost_center and year, sum total_depreciation
+            df_yearly = df.groupby(['cost_center', 'year'], as_index=False)['total_depreciation'].sum()
+            df_pivot = df_yearly.pivot_table(index=['cost_center'], columns=['year'], values='total_depreciation', aggfunc='sum', fill_value=0)
         else:
-            df_pivot = pd.DataFrame()
+            # Default: monthly
+            df_pivot = df.pivot_table(index=['cost_center'], columns=['year', 'month'], values='total_depreciation', aggfunc='sum', fill_value=0)
         return df_pivot
 
     @staticmethod
