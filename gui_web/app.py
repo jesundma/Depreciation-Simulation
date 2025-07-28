@@ -102,10 +102,52 @@ def import_existing_depreciation():
         encoding = result['encoding'] or 'utf-8'
         # Read CSV to DataFrame with detected encoding
         import io
-        df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding)
+        fallback_encodings = [encoding, 'latin1', 'cp1252'] if encoding not in ['latin1', 'cp1252'] else [encoding]
+        last_error = None
+        for enc in fallback_encodings:
+            try:
+                df = pd.read_csv(
+                    io.BytesIO(file_bytes),
+                    encoding=enc,
+                    sep=';',
+                    decimal=','
+                )
+                # Convert all column headers to lowercase
+                df.columns = [col.lower() for col in df.columns]
+                used_encoding = enc
+                break
+            except UnicodeDecodeError as ude:
+                last_error = ude
+                continue
+            except pd.errors.ParserError as pe:
+                # Try to extract line number from error message
+                import re
+                line_info = re.search(r'line (\d+)', str(pe))
+                if line_info:
+                    line_num = line_info.group(1)
+                    messages.append(f'CSV parsing error: Problem at line {line_num}. Please check for inconsistent columns or malformed data in your file.')
+                else:
+                    messages.append(f'CSV parsing error: {pe}')
+                return jsonify({'success': False, 'messages': messages}), 400
+        else:
+            messages.append(f'Could not decode file with encodings: {fallback_encodings}. Last error: {last_error}')
+            return jsonify({'success': False, 'messages': messages}), 400
+        print('DataFrame dtypes:')
+        print(df.dtypes)
+        print('DataFrame max values:')
+        print(df.max(numeric_only=True))
+        print('DataFrame sample rows:')
+        print(df.head(10))
+        # Check for non-integer or NaN values in integer columns
+        for col in df.columns:
+            if df[col].dtype in ['int64', 'float64']:
+                non_int = df[~df[col].apply(lambda x: pd.isna(x) or (isinstance(x, (int, float)) and float(x).is_integer()))]
+                if not non_int.empty:
+                    print(f'Non-integer or NaN values in column {col}:')
+                    print(non_int[[col]].head(10))
         repo = ExistingAssetDepreciationRepository()
         repo.save_in_chunks(df)
-        messages.append(f"Imported {len(df)} rows to existing_asset_depreciations table. (Encoding: {encoding})")
+        messages.append(f"Imported {len(df)} rows to existing_asset_depreciations table. (Encoding: {used_encoding})")
         return jsonify({'success': True, 'messages': messages})
     except Exception as e:
         tb = traceback.format_exc()
@@ -351,10 +393,18 @@ def profile_page():
 @app.route('/depreciations-by-cost-center')
 @login_required
 def depreciations_by_cost_center():
+    from flask import request
     from services.report_service import ReportService
+    planned_projects = request.args.get('planned_projects') == '1'
+    # If no query params, show settings form
+    if not request.args:
+        return render_template('depreciations_by_cost_center_settings.html')
     try:
-        df = ReportService.create_depreciations_by_cost_center_report()
-        # Show DataFrame as HTML table
+        # For now, only one option, but logic can be extended
+        if planned_projects:
+            df = ReportService.create_depreciations_by_cost_center_report()
+        else:
+            df = ReportService.create_depreciations_by_cost_center_report()  # fallback, same as above
         table_html = df.to_html(classes='table table-striped', border=0)
         return render_template('view_dataframe.html', table_html=table_html)
     except Exception as e:

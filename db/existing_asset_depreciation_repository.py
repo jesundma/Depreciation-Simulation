@@ -10,16 +10,21 @@ class ExistingAssetDepreciationRepository(BaseRepository):
         :param chunk_size: Number of rows per batch insert.
         """
         columns = [
-            'Poistokirja', 'Omaisuuseräryhmä', 'Omaisuuserä', 'Kuvaus', 'Teksti',
-            'Val', 'Val_Summa', 'Summa', 'Om_Erä_tapahtumapvm', 'Omaisuuseräjakso',
-            'Tilivuosi', 'Tili', 'Kustannuspaikka', 'Kohde'
+            'poistokirja', 'omaisuuseräryhmä', 'omaisuuserä', 'kuvaus', 'teksti',
+            'val', 'val_summa', 'summa', 'om_erä_tapahtumapvm', 'omaisuuseräjakso',
+            'tilivuosi', 'tili', 'kustannuspaikka', 'kohde'
         ]
         query = f"""
             INSERT INTO existing_asset_depreciations
             ({', '.join(columns)})
             VALUES %s
         """
-        data = [tuple(row[col] for col in columns) for _, row in df.iterrows()]
+        # Ensure DataFrame columns are lowercase for robust matching
+        df.columns = [col.lower() for col in df.columns]
+        try:
+            data = [tuple(row[col] for col in columns) for _, row in df.iterrows()]
+        except KeyError as e:
+            raise KeyError(f"Column '{e.args[0]}' not found in file. Actual columns: {list(df.columns)}")
         for i in range(0, len(data), chunk_size):
             chunk = data[i:i+chunk_size]
             with psycopg2.connect(self.db_url, cursor_factory=RealDictCursor) as conn:

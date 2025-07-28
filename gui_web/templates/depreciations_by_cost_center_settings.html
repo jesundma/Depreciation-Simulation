@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <h1>Depreciations by Cost Center Report Settings</h1>
+    <form method="get" action="/depreciations-by-cost-center">
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" value="1" id="plannedProjects" name="planned_projects" checked>
+            <label class="form-check-label" for="plannedProjects">
+                Planned Projects Depreciations
+            </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Show Report</button>
+    </form>
+</div>
+{% endblock %}

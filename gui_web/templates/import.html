@@ -112,11 +112,30 @@
                     const rowMsg = data.messages.find(m => m.includes('Imported'));
                     if (rowMsg) {
                         showImportProgress(rowMsg);
-                        setTimeout(() => showImportStatus(data.success, data.messages), 1200);
+                        setTimeout(() => {
+                            showImportStatus(data.success, data.messages);
+                            if (data.success) {
+                                // Hide modal and reload page after short delay
+                                setTimeout(() => {
+                                    const modalEl = document.getElementById('import-status-modal');
+                                    const modal = bootstrap.Modal.getInstance(modalEl);
+                                    if (modal) modal.hide();
+                                    window.location.href = '/import';
+                                }, 1500);
+                            }
+                        }, 1200);
                         return;
                     }
                 }
                 showImportStatus(data.success, data.messages);
+                if (data.success) {
+                    setTimeout(() => {
+                        const modalEl = document.getElementById('import-status-modal');
+                        const modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) modal.hide();
+                        window.location.href = '/import';
+                    }, 1500);
+                }
             })
             .catch(err => {
                 showImportStatus(false, ['An error occurred while importing.', err.toString()]);
