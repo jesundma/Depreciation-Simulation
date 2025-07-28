@@ -2,7 +2,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor, execute_values
 from dotenv import load_dotenv
 import os
-from gui.status_window import StatusWindow
+
 from collections import Counter
 
 # Load environment variables
@@ -631,8 +631,8 @@ class DatabaseService:
         :param classifications: A list of tuples (project_id, importance, type).
         """
         try:
-            status_window = StatusWindow("Database Operations Status")
-            status_window.update_status(f"[INFO] Attempting to save {len(classifications)} project classifications in batch.")
+            # StatusWindow removed for web compatibility
+
 
             project_ids = [str(classification[0]) for classification in classifications]
 
@@ -666,7 +666,7 @@ class DatabaseService:
 
                     conn.commit()
 
-            status_window.update_status(f"[INFO] Successfully saved {len(classifications)} project classifications in batch and removed obsolete rows.")
+
         except Exception as e:
             print(f"[ERROR] Failed to save project classifications batch: {repr(e)}")
             raise
@@ -706,16 +706,16 @@ class DatabaseService:
                         cur.execute(query_delete, (tuple(project_ids),))
                         removed_rows = cur.rowcount
                         conn.commit()
-                        status_window = StatusWindow("Database Operations Status")
-                        status_window.update_status(f"[INFO] Successfully saved {len(classifications)} classifications in batch and removed {removed_rows} obsolete rows.")
+                        # StatusWindow removed for web compatibility
+
                     else:
                         print("[WARNING] No project IDs provided. Skipping deletion of obsolete rows.")
 
                     print(f"[DEBUG] Successfully saved {len(classifications)} project classifications in batch.")
         except psycopg2.errors.ForeignKeyViolation as e:
-            status_window = StatusWindow("Database Operations Status")
+            # StatusWindow removed for web compatibility
             if "project_classifications_project_id_fkey" in str(e):
-                status_window.update_status("[ERROR] ForeignKeyViolation: Some project IDs in classifications are missing in the projects table. Please run 'Import Projects' to resolve this issue.")
+                pass
             print(f"[ERROR] ForeignKeyViolation: {e}")
             raise
         except Exception as e:

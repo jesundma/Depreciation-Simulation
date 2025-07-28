@@ -1,0 +1,12 @@
+# flyctl launch added from .gitignore
+# Ignore Python compiled files
+**\*.pyc
+**\__pycache__
+
+# Ignore all Excel files
+**\*.xls
+**\*.xlsx
+
+# Ignore all debugging logs
+**\*.log
+fly.toml

@@ -16,8 +16,9 @@ import logging
 load_dotenv()
 
 
+# Use secret key from environment variable for production security
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Needed for flashing messages
+app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')  # Needed for flashing messages
 # Increase max upload size to 100MB
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
 
