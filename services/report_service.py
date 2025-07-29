@@ -113,10 +113,16 @@ class ReportService:
                     value_vars = [col for col in df_planned.columns if col != 'cost_center']
                     df_planned_long = df_planned.melt(id_vars=id_vars, value_vars=value_vars, var_name='year', value_name='total_depreciation')
                     df_planned_long['Source'] = 'Planned'
+                    # Make all values positive
+                    df_planned_long['total_depreciation'] = df_planned_long['total_depreciation'].abs()
                     # Remove rows with NaN or 0 depreciation
                     df_planned_long = df_planned_long[df_planned_long['total_depreciation'].notna()]
                     dfs.append(df_planned_long)
                 else:
+                    # Make all values positive for all year columns
+                    for col in df_planned.columns:
+                        if col != 'cost_center':
+                            df_planned[col] = df_planned[col].abs()
                     df_planned['Source'] = 'Planned'
                     dfs.append(df_planned)
         if existing_projects:
@@ -130,9 +136,15 @@ class ReportService:
                     value_vars = [col for col in df_existing.columns if col != 'cost_center']
                     df_existing_long = df_existing.melt(id_vars=id_vars, value_vars=value_vars, var_name='year', value_name='total_depreciation')
                     df_existing_long['Source'] = 'Existing'
+                    # Make all values positive
+                    df_existing_long['total_depreciation'] = df_existing_long['total_depreciation'].abs()
                     df_existing_long = df_existing_long[df_existing_long['total_depreciation'].notna()]
                     dfs.append(df_existing_long)
                 else:
+                    # Make all values positive for all year columns
+                    for col in df_existing.columns:
+                        if col != 'cost_center':
+                            df_existing[col] = df_existing[col].abs()
                     df_existing['Source'] = 'Existing'
                     dfs.append(df_existing)
         if dfs:
@@ -145,7 +157,7 @@ class ReportService:
                 # Format all value columns (not cost_center) with thousand separator and zero decimals
                 for col in df_pivot.columns:
                     if col != 'cost_center' and pd.api.types.is_numeric_dtype(df_pivot[col]):
-                        df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '')
+                        df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x).replace(',', ' ') if pd.notnull(x) else '')
                 table_html = df_pivot.to_html(classes='table table-striped', border=0, index=False, escape=False)
             else:
                 # Both planned and existing: create a block for each Source, vertically stacked
@@ -160,10 +172,10 @@ class ReportService:
                         for col in df_pivot.columns:
                             if col not in ['cost_center', 'Source']:
                                 if source == 'Existing':
-                                    df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '0')
+                                    df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x).replace(',', ' ') if pd.notnull(x) else '0')
                                 else:
                                     if pd.api.types.is_numeric_dtype(df_pivot[col]):
-                                        df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '0')
+                                        df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x).replace(',', ' ') if pd.notnull(x) else '0')
                         # Ensure all columns except 'cost_center' and 'Source' are strings and replace NaN or 'nan' with '0'
                         for col in df_pivot.columns:
                             if col not in ['cost_center', 'Source']:

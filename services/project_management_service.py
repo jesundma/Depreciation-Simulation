@@ -95,18 +95,20 @@ class ProjectManagementService:
         # Create a DataFrame from the query result
         df = pd.DataFrame(query_result)
 
-        # Drop all columns except 'year' and 'monthly_depreciation'
-        df = df[['year', 'monthly_depreciation']]
-
-        # Group the DataFrame by years and sum the monthly depreciation
-        grouped_df = df.groupby('year').sum().reset_index()
-
-        # Rename the 'monthly_depreciation' column to 'amount'
-        # This is necessary to match the expected output format
-        grouped_df.rename(columns={'monthly_depreciation': 'amount'}, inplace=True)
-
-        # Convert the grouped DataFrame to the appropriate format for return value
-        depreciations = grouped_df.to_dict(orient='records')
+        # Check if required columns exist
+        required_cols = ['year', 'monthly_depreciation']
+        if not all(col in df.columns for col in required_cols):
+            # Return empty result with correct structure
+            depreciations = []
+        else:
+            # Drop all columns except 'year' and 'monthly_depreciation'
+            df = df[['year', 'monthly_depreciation']]
+            # Group the DataFrame by years and sum the monthly depreciation
+            grouped_df = df.groupby('year').sum().reset_index()
+            # Rename the 'monthly_depreciation' column to 'amount'
+            grouped_df.rename(columns={'monthly_depreciation': 'amount'}, inplace=True)
+            # Convert the grouped DataFrame to the appropriate format for return value
+            depreciations = grouped_df.to_dict(orient='records')
 
         return {
             "project_id": project_id,
