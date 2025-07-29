@@ -8,39 +8,73 @@ class ReportService:
     @staticmethod
     def export_depreciations_by_cost_center_combined_report_to_excel(planned_projects, existing_projects, report_type, output_file):
         """
-        Export the combined cost center depreciation report to Excel.
+        Export the combined cost center depreciation report to Excel, matching the HTML logic (stacked by Source, years as columns, cost_center as rows, Source as last column).
         """
+        import pandas as pd
         dfs = []
         if planned_projects:
             df_planned = ReportService.create_depreciations_by_cost_center_report(report_type=report_type)
             if not df_planned.empty:
-                df_planned['Source'] = 'Planned'
-                dfs.append(df_planned)
+                # If already pivoted (wide), melt to long format
+                if 'year' not in df_planned.columns and any(isinstance(col, (int, float)) for col in df_planned.columns if col != 'cost_center'):
+                    id_vars = ['cost_center']
+                    value_vars = [col for col in df_planned.columns if col != 'cost_center']
+                    df_planned_long = df_planned.melt(id_vars=id_vars, value_vars=value_vars, var_name='year', value_name='total_depreciation')
+                    df_planned_long['Source'] = 'Planned'
+                    df_planned_long = df_planned_long[df_planned_long['total_depreciation'].notna()]
+                    dfs.append(df_planned_long)
+                else:
+                    df_planned['Source'] = 'Planned'
+                    dfs.append(df_planned)
         if existing_projects:
             from db.existing_asset_depreciation_repository import ExistingAssetDepreciationRepository
             repo = ExistingAssetDepreciationRepository()
             df_existing = repo.fetch_depreciations_by_cost_center(report_type=report_type)
             if not df_existing.empty:
-                df_existing['Source'] = 'Existing'
-                dfs.append(df_existing)
+                if 'year' not in df_existing.columns and any(isinstance(col, (int, float)) for col in df_existing.columns if col != 'cost_center'):
+                    id_vars = ['cost_center']
+                    value_vars = [col for col in df_existing.columns if col != 'cost_center']
+                    df_existing_long = df_existing.melt(id_vars=id_vars, value_vars=value_vars, var_name='year', value_name='total_depreciation')
+                    df_existing_long['Source'] = 'Existing'
+                    df_existing_long = df_existing_long[df_existing_long['total_depreciation'].notna()]
+                    dfs.append(df_existing_long)
+                else:
+                    df_existing['Source'] = 'Existing'
+                    dfs.append(df_existing)
         if dfs:
-            df = pd.concat(dfs)
-            if planned_projects and existing_projects:
-                group_cols = [col for col in df.columns if col not in ['total_depreciation', 'Source']]
-                df = df.groupby(group_cols + ['Source'], as_index=False)['total_depreciation'].sum()
-            if 'cost_center' in df.index.names or (hasattr(df, 'columns') and hasattr(df.columns, 'names') and 'cost_center' in df.columns.names):
-                df = df.reset_index()
+            df = pd.concat(dfs, ignore_index=True)
+            # Both planned and existing: create a block for each Source, vertically stacked
+            df_blocks = []
+            for source in ['Planned', 'Existing']:
+                df_source = df[df['Source'] == source].copy()
+                if not df_source.empty:
+                    df_pivot = df_source.pivot(index='cost_center', columns='year', values='total_depreciation').fillna(0)
+                    df_pivot = df_pivot.reset_index()
+                    df_pivot['Source'] = source
+                    # Format all value columns (not cost_center, not Source)
+                    for col in df_pivot.columns:
+                        if col not in ['cost_center', 'Source']:
+                            if source == 'Existing':
+                                df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '0')
+                            else:
+                                if pd.api.types.is_numeric_dtype(df_pivot[col]):
+                                    df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '0')
+                    # Ensure all columns except 'cost_center' and 'Source' are strings and replace NaN or 'nan' with '0'
+                    for col in df_pivot.columns:
+                        if col not in ['cost_center', 'Source']:
+                            df_pivot[col] = df_pivot[col].astype(str).replace(['nan', 'NaN', 'None', ''], '0').replace({pd.NA: '0', None: '0'})
+                    # Move Source to last column
+                    cols = [c for c in df_pivot.columns if c != 'Source'] + ['Source']
+                    df_pivot = df_pivot[cols]
+                    df_blocks.append(df_pivot)
+            if df_blocks:
+                df_final = pd.concat(df_blocks, ignore_index=True)
+                df_final = df_final.sort_values(['cost_center', 'Source']).reset_index(drop=True)
+                with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+                    df_final.to_excel(writer, index=False, sheet_name='Depreciations by Cost Center')
+                print(f"[INFO] Combined depreciation report exported to {output_file}.")
             else:
-                df = df.reset_index(drop=True)
-            # Format all value columns (not group columns or 'Source') with thousand separator and zero decimals for Excel
-            group_cols_fmt = ['cost_center', 'year', 'month', 'Source']
-            for col in df.columns:
-                if col not in group_cols_fmt and pd.api.types.is_numeric_dtype(df[col]):
-                    df[col] = df[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '')
-            # Write to Excel
-            with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
-                df.to_excel(writer, index=False, sheet_name='Depreciations by Cost Center')
-            print(f"[INFO] Combined depreciation report exported to {output_file}.")
+                print("[INFO] No data to export.")
         else:
             print("[INFO] No data to export.")
 
@@ -73,35 +107,78 @@ class ReportService:
         if planned_projects:
             df_planned = ReportService.create_depreciations_by_cost_center_report(report_type=report_type)
             if not df_planned.empty:
-                df_planned['Source'] = 'Planned'
-                dfs.append(df_planned)
+                # If already pivoted (wide), melt to long format
+                if 'year' not in df_planned.columns and any(isinstance(col, (int, float)) for col in df_planned.columns if col != 'cost_center'):
+                    id_vars = ['cost_center']
+                    value_vars = [col for col in df_planned.columns if col != 'cost_center']
+                    df_planned_long = df_planned.melt(id_vars=id_vars, value_vars=value_vars, var_name='year', value_name='total_depreciation')
+                    df_planned_long['Source'] = 'Planned'
+                    # Remove rows with NaN or 0 depreciation
+                    df_planned_long = df_planned_long[df_planned_long['total_depreciation'].notna()]
+                    dfs.append(df_planned_long)
+                else:
+                    df_planned['Source'] = 'Planned'
+                    dfs.append(df_planned)
         if existing_projects:
             from db.existing_asset_depreciation_repository import ExistingAssetDepreciationRepository
             repo = ExistingAssetDepreciationRepository()
             df_existing = repo.fetch_depreciations_by_cost_center(report_type=report_type)
             if not df_existing.empty:
-                df_existing['Source'] = 'Existing'
-                dfs.append(df_existing)
+                # If already pivoted (wide), melt to long format
+                if 'year' not in df_existing.columns and any(isinstance(col, (int, float)) for col in df_existing.columns if col != 'cost_center'):
+                    id_vars = ['cost_center']
+                    value_vars = [col for col in df_existing.columns if col != 'cost_center']
+                    df_existing_long = df_existing.melt(id_vars=id_vars, value_vars=value_vars, var_name='year', value_name='total_depreciation')
+                    df_existing_long['Source'] = 'Existing'
+                    df_existing_long = df_existing_long[df_existing_long['total_depreciation'].notna()]
+                    dfs.append(df_existing_long)
+                else:
+                    df_existing['Source'] = 'Existing'
+                    dfs.append(df_existing)
         if dfs:
-            df = pd.concat(dfs)
-            # ...existing code...
-            if planned_projects and existing_projects:
-                group_cols = [col for col in df.columns if col not in ['total_depreciation', 'Source']]
-                df = df.groupby(group_cols + ['Source'], as_index=False)['total_depreciation'].sum()
-                # ...existing code...
-            # Ensure cost_center is a column, not index
-            if 'cost_center' in df.index.names or (hasattr(df, 'columns') and hasattr(df.columns, 'names') and 'cost_center' in df.columns.names):
-                df = df.reset_index()
+            df = pd.concat(dfs, ignore_index=True)
+            # Now df has columns: cost_center, year, total_depreciation, Source
+            # If only existing or only planned, pivot so years are columns
+            if (existing_projects and not planned_projects) or (planned_projects and not existing_projects):
+                df_pivot = df.pivot(index='cost_center', columns='year', values='total_depreciation').fillna(0)
+                df_pivot = df_pivot.reset_index()
+                # Format all value columns (not cost_center) with thousand separator and zero decimals
+                for col in df_pivot.columns:
+                    if col != 'cost_center' and pd.api.types.is_numeric_dtype(df_pivot[col]):
+                        df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '')
+                table_html = df_pivot.to_html(classes='table table-striped', border=0, index=False, escape=False)
             else:
-                df = df.reset_index(drop=True)
-
-            # Always format all value columns (not group columns or 'Source') with thousand separator and zero decimals
-            group_cols_fmt = ['cost_center', 'year', 'month', 'Source']
-            for col in df.columns:
-                if col not in group_cols_fmt and pd.api.types.is_numeric_dtype(df[col]):
-                    df[col] = df[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '')
-
-            table_html = df.to_html(classes='table table-striped', border=0, index=False, escape=False)
+                # Both planned and existing: create a block for each Source, vertically stacked
+                df_blocks = []
+                for source in ['Planned', 'Existing']:
+                    df_source = df[df['Source'] == source].copy()
+                    if not df_source.empty:
+                        df_pivot = df_source.pivot(index='cost_center', columns='year', values='total_depreciation').fillna(0)
+                        df_pivot = df_pivot.reset_index()
+                        df_pivot['Source'] = source
+                        # Format all value columns (not cost_center, not Source)
+                        for col in df_pivot.columns:
+                            if col not in ['cost_center', 'Source']:
+                                if source == 'Existing':
+                                    df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '0')
+                                else:
+                                    if pd.api.types.is_numeric_dtype(df_pivot[col]):
+                                        df_pivot[col] = df_pivot[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '0')
+                        # Ensure all columns except 'cost_center' and 'Source' are strings and replace NaN or 'nan' with '0'
+                        for col in df_pivot.columns:
+                            if col not in ['cost_center', 'Source']:
+                                df_pivot[col] = df_pivot[col].astype(str).replace(['nan', 'NaN', 'None', ''], '0').replace({pd.NA: '0', None: '0'})
+                        # Move Source to last column
+                        cols = [c for c in df_pivot.columns if c != 'Source'] + ['Source']
+                        df_pivot = df_pivot[cols]
+                        df_blocks.append(df_pivot)
+                if df_blocks:
+                    df_final = pd.concat(df_blocks, ignore_index=True)
+                    # Order by cost_center, then Source
+                    df_final = df_final.sort_values(['cost_center', 'Source']).reset_index(drop=True)
+                    table_html = df_final.to_html(classes='table table-striped', border=0, index=False, escape=False)
+                else:
+                    table_html = '<div class="alert alert-warning">No data selected or available.</div>'
         else:
             table_html = '<div class="alert alert-warning">No data selected or available.</div>'
         return table_html
@@ -223,10 +300,13 @@ class ReportService:
         if report_type == 'yearly':
             # Group by cost_center and year, sum total_depreciation
             df_yearly = df.groupby(['cost_center', 'year'], as_index=False)['total_depreciation'].sum()
-            df_pivot = df_yearly.pivot_table(index=['cost_center'], columns=['year'], values='total_depreciation', aggfunc='sum', fill_value=0)
+            # Pivot so cost_center is index (rows), years are columns (header)
+            df_pivot = df_yearly.pivot(index='cost_center', columns='year', values='total_depreciation').fillna(0)
+            df_pivot = df_pivot.reset_index()
         else:
             # Default: monthly
             df_pivot = df.pivot_table(index=['cost_center'], columns=['year', 'month'], values='total_depreciation', aggfunc='sum', fill_value=0)
+            df_pivot = df_pivot.reset_index()
         # ...existing code...
         return df_pivot
 
