@@ -6,6 +6,63 @@ from openpyxl.styles import PatternFill
 class ReportService:
 
     @staticmethod
+    def export_depreciations_by_cost_center_combined_report_to_excel(planned_projects, existing_projects, report_type, output_file):
+        """
+        Export the combined cost center depreciation report to Excel.
+        """
+        dfs = []
+        if planned_projects:
+            df_planned = ReportService.create_depreciations_by_cost_center_report(report_type=report_type)
+            if not df_planned.empty:
+                df_planned['Source'] = 'Planned'
+                dfs.append(df_planned)
+        if existing_projects:
+            from db.existing_asset_depreciation_repository import ExistingAssetDepreciationRepository
+            repo = ExistingAssetDepreciationRepository()
+            df_existing = repo.fetch_depreciations_by_cost_center(report_type=report_type)
+            if not df_existing.empty:
+                df_existing['Source'] = 'Existing'
+                dfs.append(df_existing)
+        if dfs:
+            df = pd.concat(dfs)
+            if planned_projects and existing_projects:
+                group_cols = [col for col in df.columns if col not in ['total_depreciation', 'Source']]
+                df = df.groupby(group_cols + ['Source'], as_index=False)['total_depreciation'].sum()
+            if 'cost_center' in df.index.names or (hasattr(df, 'columns') and hasattr(df.columns, 'names') and 'cost_center' in df.columns.names):
+                df = df.reset_index()
+            else:
+                df = df.reset_index(drop=True)
+            # Format all value columns (not group columns or 'Source') with thousand separator and zero decimals for Excel
+            group_cols_fmt = ['cost_center', 'year', 'month', 'Source']
+            for col in df.columns:
+                if col not in group_cols_fmt and pd.api.types.is_numeric_dtype(df[col]):
+                    df[col] = df[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '')
+            # Write to Excel
+            with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Depreciations by Cost Center')
+            print(f"[INFO] Combined depreciation report exported to {output_file}.")
+        else:
+            print("[INFO] No data to export.")
+
+    @staticmethod
+    def export_depreciations_by_cost_center_report_to_excel(report_type, output_file):
+        """
+        Export the planned or existing cost center depreciation report to Excel.
+        """
+        df = ReportService.create_depreciations_by_cost_center_report(report_type=report_type)
+        if not df.empty:
+            # Format all value columns (not group columns) with thousand separator and zero decimals for Excel
+            group_cols_fmt = ['cost_center', 'year', 'month']
+            for col in df.columns:
+                if col not in group_cols_fmt and pd.api.types.is_numeric_dtype(df[col]):
+                    df[col] = df[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '')
+            with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Depreciations by Cost Center')
+            print(f"[INFO] Depreciation report exported to {output_file}.")
+        else:
+            print("[INFO] No data to export.")
+
+    @staticmethod
     def create_depreciations_by_cost_center_combined_report(planned_projects, existing_projects, report_type):
         """
         Combines planned and existing depreciations by cost center, groups, formats, and returns HTML table.

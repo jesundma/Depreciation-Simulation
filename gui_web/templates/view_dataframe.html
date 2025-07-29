@@ -10,6 +10,12 @@
     <div>
         {{ table_html|safe }}
     </div>
+    <form method="get" action="/depreciations-by-cost-center/export">
+        <input type="hidden" name="planned_projects" value="{{ 1 if planned_projects else 0 }}">
+        <input type="hidden" name="existing_projects" value="{{ 1 if existing_projects else 0 }}">
+        <input type="hidden" name="report_type" value="{{ report_type }}">
+        <button type="submit" class="btn btn-success mt-3">Export to Excel</button>
+    </form>
     <a href="/reports">Back to Reports</a>
 </body>
 </html>

@@ -409,10 +409,42 @@ def depreciations_by_cost_center():
             existing_projects=existing_projects,
             report_type=report_type
         )
-        return render_template('view_dataframe.html', table_html=table_html)
+        # Pass params for export button
+        return render_template('view_dataframe.html', table_html=table_html,
+                               planned_projects=planned_projects,
+                               existing_projects=existing_projects,
+                               report_type=report_type)
     except Exception as e:
         app.logger.error(f"Error generating depreciations by cost center report: {str(e)}", exc_info=True)
         return render_template('report_error.html', error=str(e))
+
+# Export to Excel route
+@app.route('/depreciations-by-cost-center/export')
+@login_required
+def depreciations_by_cost_center_export():
+    from flask import request, send_file
+    from services.report_service import ReportService
+    import tempfile, os
+    planned_projects = request.args.get('planned_projects') == '1'
+    existing_projects = request.args.get('existing_projects') == '1'
+    report_type = request.args.get('report_type', 'monthly')
+    # Use a temp file for export
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp:
+        output_file = tmp.name
+    try:
+        ReportService.export_depreciations_by_cost_center_combined_report_to_excel(
+            planned_projects=planned_projects,
+            existing_projects=existing_projects,
+            report_type=report_type,
+            output_file=output_file
+        )
+        return send_file(output_file, as_attachment=True, download_name='depreciations_by_cost_center.xlsx')
+    finally:
+        if os.path.exists(output_file):
+            try:
+                os.remove(output_file)
+            except Exception:
+                pass
 
 @app.route('/investments-by-year')
 @login_required
