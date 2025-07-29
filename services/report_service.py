@@ -6,6 +6,50 @@ from openpyxl.styles import PatternFill
 class ReportService:
 
     @staticmethod
+    def create_depreciations_by_cost_center_combined_report(planned_projects, existing_projects, report_type):
+        """
+        Combines planned and existing depreciations by cost center, groups, formats, and returns HTML table.
+        """
+        import pandas as pd
+        dfs = []
+        # ...existing code...
+        if planned_projects:
+            df_planned = ReportService.create_depreciations_by_cost_center_report(report_type=report_type)
+            if not df_planned.empty:
+                df_planned['Source'] = 'Planned'
+                dfs.append(df_planned)
+        if existing_projects:
+            from db.existing_asset_depreciation_repository import ExistingAssetDepreciationRepository
+            repo = ExistingAssetDepreciationRepository()
+            df_existing = repo.fetch_depreciations_by_cost_center(report_type=report_type)
+            if not df_existing.empty:
+                df_existing['Source'] = 'Existing'
+                dfs.append(df_existing)
+        if dfs:
+            df = pd.concat(dfs)
+            # ...existing code...
+            if planned_projects and existing_projects:
+                group_cols = [col for col in df.columns if col not in ['total_depreciation', 'Source']]
+                df = df.groupby(group_cols + ['Source'], as_index=False)['total_depreciation'].sum()
+                # ...existing code...
+            # Ensure cost_center is a column, not index
+            if 'cost_center' in df.index.names or (hasattr(df, 'columns') and hasattr(df.columns, 'names') and 'cost_center' in df.columns.names):
+                df = df.reset_index()
+            else:
+                df = df.reset_index(drop=True)
+
+            # Always format all value columns (not group columns or 'Source') with thousand separator and zero decimals
+            group_cols_fmt = ['cost_center', 'year', 'month', 'Source']
+            for col in df.columns:
+                if col not in group_cols_fmt and pd.api.types.is_numeric_dtype(df[col]):
+                    df[col] = df[col].apply(lambda x: '{:,.0f}'.format(x) if pd.notnull(x) else '')
+
+            table_html = df.to_html(classes='table table-striped', border=0, index=False, escape=False)
+        else:
+            table_html = '<div class="alert alert-warning">No data selected or available.</div>'
+        return table_html
+
+    @staticmethod
     def group_projects_by_importance(output_file="importance_and_type_grouped_data.xlsx"):
         """
         Group projects by importance and generate a report.
@@ -106,7 +150,7 @@ class ReportService:
     def create_depreciations_by_cost_center_report(report_type='monthly'):
         """
         Generate a depreciation report grouped by cost center using the report repository.
-        Returns the resulting DataFrame.
+        Returns the resulting DataFrame, formatted for display (zero decimals, thousands separator).
         report_type: 'monthly' (default) or 'yearly'
         """
         from db.repository_factory import RepositoryFactory
@@ -115,7 +159,9 @@ class ReportService:
         data = report_repo.fetch_depreciations_by_cost_center()
         import pandas as pd
         df = pd.DataFrame(data)
+        # ...existing code...
         if df.empty:
+            # ...existing code...
             return pd.DataFrame()
         if report_type == 'yearly':
             # Group by cost_center and year, sum total_depreciation
@@ -124,6 +170,7 @@ class ReportService:
         else:
             # Default: monthly
             df_pivot = df.pivot_table(index=['cost_center'], columns=['year', 'month'], values='total_depreciation', aggfunc='sum', fill_value=0)
+        # ...existing code...
         return df_pivot
 
     @staticmethod
