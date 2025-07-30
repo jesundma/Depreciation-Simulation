@@ -50,12 +50,12 @@ class CalculationService:
 
         # Calculate monthly depreciation for the first year
         first_year_group.at[0, 'depreciation_base'] = first_year_group.at[0, 'investment_amount']
-        depreciation_value = float(-(first_year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
+        depreciation_value = float((first_year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
 
         for i, row in first_year_group.iterrows():
             if row['investment_amount'] > 0:
                 first_year_group.at[i, 'depreciation_base'] += row['investment_amount']  # Add positive investment amount to depreciation base
-                depreciation_value = float(-(first_year_group.at[i, 'depreciation_base'] * depreciation_percentage) / 100)  # Recalculate monthly depreciation
+                depreciation_value = float((first_year_group.at[i, 'depreciation_base'] * depreciation_percentage) / 100)  # Recalculate monthly depreciation
 
             if i == first_year_group.index[0]:
                 first_year_group.at[i, 'remainder'] = first_year_group.at[first_year_group.index[0], 'depreciation_base'] + depreciation_value
@@ -67,15 +67,16 @@ class CalculationService:
         combined_df = pd.concat([combined_df, first_year_group], ignore_index=True)  # Append first year group
 
         # Calculate depreciation for subsequent years
+
         for idx, year_group in enumerate(depreciation_dataframes[1:], start=1):
             previous_year_group = depreciation_dataframes[idx - 1]  # Get the previous year group
             year_group.at[0, 'depreciation_base'] = previous_year_group.at[previous_year_group.index[-1], 'remainder']
-            depreciation_value = float(-(year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
+            depreciation_value = float((year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
 
             for i, row in year_group.iterrows():
                 if row['investment_amount'] < 0:
                     year_group.at[i, 'depreciation_base'] += row['investment_amount']  # Add positive investment amount to depreciation base
-                    depreciation_value = float(-(year_group.at[i, 'depreciation_base'] * depreciation_percentage) / 100)  # Recalculate monthly depreciation
+                    depreciation_value = float((year_group.at[i, 'depreciation_base'] * depreciation_percentage) / 100)  # Recalculate monthly depreciation
 
                 if i == year_group.index[0]:
                     year_group.at[i, 'remainder'] = year_group.at[year_group.index[0], 'depreciation_base'] + depreciation_value
@@ -342,10 +343,6 @@ class CalculationService:
         # Add cost_center as a column to every preprocessed DataFrame in the list
         for df in depreciation_dataframes:
             df['cost_center'] = cost_center
-
-        logger.debug(f'Added cost_center column to all DataFrames: {depreciation_dataframes}')  # Debug: log the updated DataFrames
-
-        logger.debug(f'Ordered depreciation DataFrames: {depreciation_dataframes}')  # Debug: log the ordered DataFrames
 
         # Return the list of depreciation DataFrames
         return depreciation_dataframes
