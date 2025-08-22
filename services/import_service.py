@@ -1,27 +1,23 @@
 from db.database_service import DatabaseService
 import pandas as pd
-from tkinter import filedialog
 from models.project_model import Project
 
 class ImportService:
+    # GUI-only method removed for web compatibility
+    # If you need desktop import, implement this in a separate desktop-only module.
+
     @staticmethod
-    def read_excel_to_dataframe(title: str, filetypes: list):
+    def read_excel_from_upload(file):
         """
-        Common method to read an Excel file and return a DataFrame.
-        :param title: Title for the file dialog.
-        :param filetypes: List of file types for the file dialog.
-        :return: A pandas DataFrame or None if no file is selected.
+        Web context: Read an uploaded Excel file and return a DataFrame.
+        :param file: FileStorage object from Flask request.files['file']
+        :return: A pandas DataFrame or None if file is not provided.
         """
-        file_path = filedialog.askopenfilename(title=title, filetypes=filetypes)
-        if not file_path:
-            print("[INFO] No file selected.")
+        if not file:
+            print("[INFO] No file uploaded.")
             return None
-        # Always read project_id as string (object)
-        df = pd.read_excel(file_path, header=0, dtype={"project_id": str})
-
-        # Convert numeric column names to strings
+        df = pd.read_excel(file, header=0, dtype={"project_id": str})
         df.columns = [str(col).strip() for col in df.columns]
-
         return df
 
     @staticmethod
@@ -66,34 +62,11 @@ class ImportService:
                 print(f"[ERROR] Failed to import projects: {e}")
 
     @staticmethod
-    def create_project_classifications_from_dataframe():
+    def create_project_classifications_from_dataframe(*args, **kwargs):
         """
-        Read and save project classifications from an Excel file to the 'project_classifications' table.
+        GUI-only method removed for web compatibility.
         """
-        df = ImportService.read_excel_to_dataframe(
-            title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
-        )
-        if df is None:
-            return
-
-        # Create a new DataFrame for project classifications with specific headers
-        classification_columns = ["project_id", "importance", "type"]
-        classifications_df = df[classification_columns].drop_duplicates(subset="project_id")
-
-        # Convert the DataFrame to a list of tuples for batch saving
-        classifications_data = [
-            (
-                row["project_id"],
-                row["importance"],
-                row["type"]
-            )
-            for _, row in classifications_df.iterrows()
-        ]
-
-        db_service = DatabaseService()
-        db_service.save_project_classifications_batch(classifications_data)
-
-        print("[INFO] Project classifications have been successfully imported and saved to the database.")
+        raise NotImplementedError("This method is only available in the desktop GUI version.")
 
     @staticmethod
     def create_investments_from_dataframe(filepath=None, df=None, status_callback=None):
@@ -116,19 +89,15 @@ class ImportService:
                     print(f"[ERROR] Failed to read Excel file: {e}")
                 return
         elif df is None:
-            # GUI usage: open file dialog
-            df = ImportService.read_excel_to_dataframe(
-                title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
-            )
-            if df is None:
-                return
+            # GUI usage: not supported in web context
+            raise NotImplementedError("Excel file dialog is not available in web context. Please upload a file.")
         # Debug: Print the column names to identify discrepancies
-        print("[DEBUG] Column names in the Excel file:", df.columns.tolist())
+        print("[DEBUG] Column names in the Excel file:", list(df.columns))
         # Normalize column names for comparison (lowercase, but do not convert to string again)
         df.columns = [col.strip().lower() for col in df.columns]
         investment_columns = [col.lower() for col in ["project_id", "2025", "2026", "2027", "2028", "2029", "2030", "2031", "2032", "2033", "2034", "2035"]]
         print("[DEBUG] Expected columns:", investment_columns)
-        print("[DEBUG] Actual columns in DataFrame:", df.columns.tolist())
+        print("[DEBUG] Actual columns in DataFrame:", list(df.columns))
         # Check if all required columns are present in the DataFrame
         missing_columns = [col for col in investment_columns if col not in df.columns]
         if missing_columns:
@@ -174,12 +143,8 @@ class ImportService:
         import pandas as pd
         if df is None:
             if filepath is None:
-                # GUI usage: open file dialog
-                df = ImportService.read_excel_to_dataframe(
-                    title="Select Excel File", filetypes=[("Excel Files", "*.xlsx *.xls")]
-                )
-                if df is None:
-                    return
+                # GUI usage: not supported in web context
+                raise NotImplementedError("Excel file dialog is not available in web context. Please upload a file.")
             else:
                 try:
                     df = pd.read_excel(filepath)
@@ -204,6 +169,12 @@ class ImportService:
                 else:
                     print(msg)
                 return
+        # Use 'start_month' if present, else fallback to 'depreciation_months'
+        month_col = None
+        if "start_month" in df.columns:
+            month_col = "start_month"
+        elif "depreciation_months" in df.columns:
+            month_col = "depreciation_months"
         expanded_rows = []
         for _, row in df.iterrows():
             project_id = str(row["project_id"]).strip()
@@ -216,11 +187,11 @@ class ImportService:
                     print(msg)
                 raise ValueError(msg)
             years = [y.strip() for y in start_year_raw.split(';') if y.strip()]
-            # Handle depreciation_months with robust defaulting
-            if "depreciation_months" not in df.columns or pd.isna(row["depreciation_months"]) or str(row["depreciation_months"]).strip() == "":
+            # Handle start_month or depreciation_months with robust defaulting
+            if month_col is None or pd.isna(row[month_col]) or str(row[month_col]).strip() == "":
                 months = ["1"] * len(years)
             else:
-                months_raw = str(row["depreciation_months"]).strip()
+                months_raw = str(row[month_col]).strip()
                 months = [m.strip() for m in months_raw.split(';') if m.strip()]
                 if len(months) == len(years):
                     pass  # pair by index

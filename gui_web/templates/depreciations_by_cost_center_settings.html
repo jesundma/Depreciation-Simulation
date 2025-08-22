@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-5">
+    <h1>Depreciations by Cost Center Report Settings</h1>
+    <form method="get" action="/depreciations-by-cost-center">
+        <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" value="1" id="plannedProjects" name="planned_projects" checked>
+            <label class="form-check-label" for="plannedProjects">
+                Planned Projects Depreciations
+            </label>
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" value="1" id="existingProjects" name="existing_projects">
+            <label class="form-check-label" for="existingProjects">
+                Existing Projects Depreciations
+            </label>
+        </div>
+        <div class="mb-3">
+            <label class="form-label d-block">Report Type:</label>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="report_type" id="reportTypeMonthly" value="monthly" checked>
+                <label class="form-check-label" for="reportTypeMonthly">Monthly</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="report_type" id="reportTypeYearly" value="yearly">
+                <label class="form-check-label" for="reportTypeYearly">Yearly</label>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary">Show Report</button>
+    </form>
+</div>
+{% endblock %}

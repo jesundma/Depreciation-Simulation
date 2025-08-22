@@ -50,12 +50,12 @@ class CalculationService:
 
         # Calculate monthly depreciation for the first year
         first_year_group.at[0, 'depreciation_base'] = first_year_group.at[0, 'investment_amount']
-        depreciation_value = float(-(first_year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
+        depreciation_value = float((first_year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
 
         for i, row in first_year_group.iterrows():
             if row['investment_amount'] > 0:
                 first_year_group.at[i, 'depreciation_base'] += row['investment_amount']  # Add positive investment amount to depreciation base
-                depreciation_value = float(-(first_year_group.at[i, 'depreciation_base'] * depreciation_percentage) / 100)  # Recalculate monthly depreciation
+                depreciation_value = float((first_year_group.at[i, 'depreciation_base'] * depreciation_percentage) / 100)  # Recalculate monthly depreciation
 
             if i == first_year_group.index[0]:
                 first_year_group.at[i, 'remainder'] = first_year_group.at[first_year_group.index[0], 'depreciation_base'] + depreciation_value
@@ -67,15 +67,16 @@ class CalculationService:
         combined_df = pd.concat([combined_df, first_year_group], ignore_index=True)  # Append first year group
 
         # Calculate depreciation for subsequent years
+
         for idx, year_group in enumerate(depreciation_dataframes[1:], start=1):
             previous_year_group = depreciation_dataframes[idx - 1]  # Get the previous year group
             year_group.at[0, 'depreciation_base'] = previous_year_group.at[previous_year_group.index[-1], 'remainder']
-            depreciation_value = float(-(year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
+            depreciation_value = float((year_group.at[0, 'depreciation_base'] * depreciation_percentage) / 100)
 
             for i, row in year_group.iterrows():
                 if row['investment_amount'] < 0:
                     year_group.at[i, 'depreciation_base'] += row['investment_amount']  # Add positive investment amount to depreciation base
-                    depreciation_value = float(-(year_group.at[i, 'depreciation_base'] * depreciation_percentage) / 100)  # Recalculate monthly depreciation
+                    depreciation_value = float((year_group.at[i, 'depreciation_base'] * depreciation_percentage) / 100)  # Recalculate monthly depreciation
 
                 if i == year_group.index[0]:
                     year_group.at[i, 'remainder'] = year_group.at[year_group.index[0], 'depreciation_base'] + depreciation_value
@@ -115,20 +116,26 @@ class CalculationService:
         # Preprocess the investment data using the preprocess_depreciation_years_data function
         depreciation_dataframes = CalculationService.preprocess_depreciation_years_data(df, project_id)
 
-        logger.debug(f'Preprocessed depreciation dataframes: {depreciation_dataframes}')  # Debug: log the preprocessed DataFrames
+        # Iterate over each DataFrame in depreciation_dataframes
+        for df in depreciation_dataframes:
+            num_rows = len(df)
+            monthly_depreciation = df.at[0, 'investment_amount'] / num_rows
+            df.at[0, 'depreciation_base'] = df.at[0, 'investment_amount']
 
-        # Concatenate all DataFrames in depreciation_dataframes into a single DataFrame
-        combined_df = pd.concat(depreciation_dataframes, ignore_index=True)
+            for i in range(num_rows):
+                if i == 0:
+                    df.at[i, 'remainder'] = df.at[i, 'depreciation_base'] - monthly_depreciation
+                else:
+                    df.at[i, 'depreciation_base'] = df.at[i - 1, 'remainder']
+                    df.at[i, 'remainder'] = df.at[i, 'depreciation_base'] - monthly_depreciation
+                df.at[i, 'monthly_depreciation'] = monthly_depreciation
 
-        # Group by year and month, summing up values for each group
-        combined_df = combined_df.groupby(['year', 'month'], as_index=False).sum()
+            # Log the processed DataFrame to depreciations_debug.log
+            logger.debug(f"Processed DataFrame:\n{df}")
+            with open(log_path, 'a') as log_file:
+                log_file.write(f"Processed DataFrame:\n{df}\n")
 
-        # Log the grouped and summed DataFrame
-        logger.debug(f"Grouped and Summed DataFrame (by year and month):\n{combined_df}")
-        with open(log_path, 'a') as log_file:
-            log_file.write(f"Grouped and Summed DataFrame (by year and month):\n{combined_df}\n")
-
-        return combined_df
+        return depreciation_dataframes
     
     @staticmethod
     def calculate_depreciation_for_all_projects():
@@ -322,12 +329,6 @@ class CalculationService:
 
         logger.debug(f'Ordered depreciation DataFrames: {depreciation_dataframes}')  # Debug: log the ordered DataFrames
 
-        # Log each DataFrame in depreciation_dataframes for debugging
-        for idx, df in enumerate(depreciation_dataframes):
-            logger.debug(f"Depreciation DataFrame {idx} content:\n{df}")
-            with open(log_path, 'a') as log_file:
-                log_file.write(f"Depreciation DataFrame {idx} content:\n{df}\n")
-
         # Return the list of depreciation DataFrames
         return depreciation_dataframes
     
@@ -397,18 +398,11 @@ class CalculationService:
                 depreciation_years_to_months = original_depreciation_years_to_months
 
                 depreciation_dataframes.append(df_new)
-                logger.debug(f'Calculation ready DataFrame: {df_new}')
+                logger.debug(f'Created DataFrame: {df_new}')
                 with open(log_path, 'a') as log_file:
-                    log_file.write(f'Calulation ready DataFrame from Preprocess: {df_new}\n')
+                    log_file.write(f'Created DataFrame: {df_new}\n')
 
-                # Log the content of df_new to the log file for debugging
-                logger.debug(f"Content of df_new:\n{df_new}")
-                with open(log_path, 'a') as log_file:
-                    log_file.write(f"Content of df_new:\n{df_new}\n")
             else:
                 pushed_investments += investment
-                logger.debug(f'Pushed investment: {investment}, total pushed: {pushed_investments}')
-                with open(log_path, 'a') as log_file:
-                    log_file.write(f'Pushed investment: {investment}, total pushed: {pushed_investments}\n')
-
+        
         return depreciation_dataframes

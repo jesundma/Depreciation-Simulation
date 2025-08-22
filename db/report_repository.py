@@ -105,3 +105,17 @@ class ReportRepository(BaseRepository):
                 pc.importance, pc.type, p.branch, p.operations, p.project_id, i.year;
         """
         return self.execute_query(query, fetch=True)
+
+    def fetch_depreciations_by_cost_center(self):
+        """
+        Fetch depreciations grouped by cost center, year, and month.
+        """
+
+        query = '''
+            SELECT cost_center, year, month, SUM(monthly_depreciation) AS total_depreciation
+            FROM calculated_depreciations
+            GROUP BY cost_center, year, month
+            ORDER BY cost_center, year, month
+        '''
+        data = self.execute_query(query, fetch=True)
+        return data

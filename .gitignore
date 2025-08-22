@@ -8,3 +8,6 @@ __pycache__/
 
 # Ignore all debugging logs
 *.log
+
+# Ignore environment variable files
+.env

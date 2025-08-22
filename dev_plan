@@ -1,8 +1,16 @@
+Updated 24.7.2025
+
 Data content:
-1) Add CC to Projects table and make necessary changes to db and GUI functions.
+1) New SQL- table for depreciation simulation monthly data from financial system, used to combine actual and planned depreciation by CC.
 
 
 Functionalities:
 1) Create percentage depreciation method using start month and year
+Done
 2) Create year depreciation method using start month and year
+Done
 3) clean all functions in services and db for tkinter specific content so that functions are general functions for desktop and web UI
+Desktop development postponed, only web development on-going
+
+Testing:
+1) Create a testing plan
